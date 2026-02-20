@@ -272,7 +272,8 @@ export async function rejectAmendment(amendmentId: string) {
     .single();
   if (!amendment) throw new Error("Amendment not found");
 
-  await sb().from("amendments").update({ status: "rejected" }).eq("id", amendmentId);
+  const { error } = await sb().from("amendments").update({ status: "rejected" }).eq("id", amendmentId);
+  if (error) throw new Error(error.message);
 
   const proposal = amendment.proposal as unknown as { id: string; meeting_id: string };
   await logAuditEvent({
