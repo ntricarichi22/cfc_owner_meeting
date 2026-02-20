@@ -110,11 +110,7 @@ const requiredSchema: Record<string, string[]> = {
 export async function GET() {
   try {
     const sb = getSupabaseServer();
-    const { data, error } = await sb
-      .schema("information_schema")
-      .from("columns")
-      .select("table_name, column_name")
-      .eq("table_schema", "public");
+    const { data, error } = await sb.rpc("get_public_columns");
 
     if (error) {
       return NextResponse.json(
