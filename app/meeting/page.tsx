@@ -2,11 +2,13 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/lib/supabase-server";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function MeetingPage() {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get("cfc_team_session");
 
-  if (!sessionCookie?.value) {
+  if (!sessionCookie?.value || !UUID_RE.test(sessionCookie.value)) {
     redirect("/");
   }
 

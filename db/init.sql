@@ -170,6 +170,7 @@ create table if not exists team_sessions (
 -- ============================================================
 -- INDEXES
 -- ============================================================
+create index if not exists idx_team_sessions_created on team_sessions(created_at);
 create index if not exists idx_owners_league on owners(league_id);
 create index if not exists idx_owners_team on owners(team_name);
 create index if not exists idx_meetings_league on meetings(league_id);
