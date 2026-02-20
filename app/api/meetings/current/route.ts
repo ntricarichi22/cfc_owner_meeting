@@ -12,9 +12,8 @@ export async function GET() {
   const { data, error } = await sb
     .from("meetings")
     .select("*")
-    .eq("league_id", session.league_id)
-    .eq("status", "active")
-    .order("club_year", { ascending: false })
+    .eq("status", "live")
+    .order("year", { ascending: false })
     .limit(1)
     .maybeSingle();
 
