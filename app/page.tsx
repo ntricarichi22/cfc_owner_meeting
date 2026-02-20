@@ -6,24 +6,9 @@ import Nav from "@/components/Nav";
 import Link from "next/link";
 
 interface Team {
-  id: number;
-  name: string;
+  teamId: string;
+  teamName: string;
 }
-
-const FALLBACK_TEAMS: Team[] = [
-  { id: 1, name: "Virginia Founders" },
-  { id: 2, name: "Team Alpha" },
-  { id: 3, name: "Team Bravo" },
-  { id: 4, name: "Team Charlie" },
-  { id: 5, name: "Team Delta" },
-  { id: 6, name: "Team Echo" },
-  { id: 7, name: "Team Foxtrot" },
-  { id: 8, name: "Team Golf" },
-  { id: 9, name: "Team Hotel" },
-  { id: 10, name: "Team India" },
-  { id: 11, name: "Team Juliet" },
-  { id: 12, name: "Team Kilo" },
-];
 
 interface Meeting {
   id: string;
@@ -34,21 +19,31 @@ interface Meeting {
 
 export default function Home() {
   const { session, loading, selectTeam, logout, isCommissioner } = useSession();
-  const [teams, setTeams] = useState<Team[]>(FALLBACK_TEAMS);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [teamsLoading, setTeamsLoading] = useState(true);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/owners")
-      .then((r) => r.json())
-      .then((data: { team_name: string }[]) => {
+    fetch("/api/teams")
+      .then(async (r) => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => ({}));
+          throw new Error(body.error || `Failed to load teams (HTTP ${r.status})`);
+        }
+        return r.json();
+      })
+      .then((data: Team[]) => {
         if (Array.isArray(data) && data.length > 0) {
-          setTeams(
-            data.map((o, i) => ({ id: i + 1, name: o.team_name }))
-          );
+          setTeams(data);
+        } else {
+          setError("No teams available");
         }
       })
-      .catch(() => {});
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : "Failed to load teams");
+      })
+      .finally(() => setTeamsLoading(false));
   }, []);
 
   useEffect(() => {
@@ -90,20 +85,24 @@ export default function Home() {
           <div className="bg-gray-900 p-8 rounded-xl shadow-lg">
             <p className="mb-4 text-gray-400">Select Your Team</p>
             {error && <p className="text-red-400 mb-2 text-sm">{error}</p>}
-            <select
-              className="bg-black border border-gray-700 p-3 rounded-lg text-white w-64"
-              defaultValue=""
-              onChange={(e) => {
-                if (e.target.value) handleSelect(e.target.value);
-              }}
-            >
-              <option value="">-- Choose Team --</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.name}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+            {teamsLoading ? (
+              <p className="text-gray-500">Loading teams…</p>
+            ) : (
+              <select
+                className="bg-black border border-gray-700 p-3 rounded-lg text-white w-64"
+                defaultValue=""
+                onChange={(e) => {
+                  if (e.target.value) handleSelect(e.target.value);
+                }}
+              >
+                <option value="">-- Choose Team --</option>
+                {teams.map((t) => (
+                  <option key={t.teamId} value={t.teamName}>
+                    {t.teamName}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         ) : (
           <div className="text-center max-w-2xl w-full">
