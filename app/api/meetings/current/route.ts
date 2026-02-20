@@ -13,17 +13,17 @@ export async function GET() {
     .from("meetings")
     .select("*")
     .eq("league_id", session.league_id)
-    .eq("status", "live")
+    .eq("status", "active")
     .order("club_year", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: "Failed to fetch meeting" }, { status: 500 });
+    return NextResponse.json({ error: "Supabase error", details: error }, { status: 500 });
   }
 
   if (!data) {
-    return NextResponse.json({ error: "No live meeting found" }, { status: 404 });
+    return NextResponse.json({ error: "No active meeting" }, { status: 404 });
   }
 
   return NextResponse.json(data);
