@@ -3,43 +3,59 @@ import { getSupabaseServer } from "@/lib/supabase-server";
 import { setSessionCookie, clearSession } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
-  const { team_name } = await req.json();
-  if (!team_name) {
-    return NextResponse.json({ error: "team_name required" }, { status: 400 });
+  const { teamId, teamName } = await req.json();
+  if (!teamId || !teamName) {
+    return NextResponse.json(
+      { error: "teamId and teamName required" },
+      { status: 400 }
+    );
   }
 
   const sb = getSupabaseServer();
-  const { data: owner, error } = await sb
-    .from("owners")
-    .select("id, league_id, team_name, role, display_name")
-    .eq("team_name", team_name)
-    .single();
 
-  if (error) {
+  // Check if this team is already claimed in the last 24 hours
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: existing, error: checkError } = await sb
+    .from("team_sessions")
+    .select("id")
+    .eq("team_id", teamId)
+    .gte("created_at", cutoff)
+    .limit(1);
+
+  if (checkError) {
     return NextResponse.json(
-      { error: `Failed to load teams (status ${error.code || "unknown"})` },
+      { error: "Failed to check team session" },
       { status: 500 }
     );
   }
 
-  if (!owner) {
-    return NextResponse.json({ error: "Team not found" }, { status: 404 });
+  if (existing && existing.length > 0) {
+    return NextResponse.json(
+      { error: "Team already claimed" },
+      { status: 409 }
+    );
+  }
+
+  // Insert a new team_sessions row
+  const { error: insertError } = await sb
+    .from("team_sessions")
+    .insert({ team_id: teamId, team_name: teamName });
+
+  if (insertError) {
+    return NextResponse.json(
+      { error: "Failed to create session" },
+      { status: 500 }
+    );
   }
 
   await setSessionCookie({
-    owner_id: owner.id,
-    team_name: owner.team_name,
-    role: owner.role,
-    league_id: owner.league_id,
+    owner_id: teamId,
+    team_name: teamName,
+    role: "owner",
+    league_id: "",
   });
 
-  return NextResponse.json({
-    owner_id: owner.id,
-    team_name: owner.team_name,
-    display_name: owner.display_name,
-    role: owner.role,
-    league_id: owner.league_id,
-  });
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE() {

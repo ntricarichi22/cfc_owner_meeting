@@ -34,23 +34,22 @@ export function useSession() {
     setLoading(false);
   }, []);
 
-  const selectTeam = useCallback(async (teamName: string) => {
+  const selectTeam = useCallback(async (teamId: string, teamName: string) => {
     const res = await fetch("/api/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ team_name: teamName }),
+      body: JSON.stringify({ teamId, teamName }),
     });
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || "Failed to select team");
     }
-    const data = await res.json();
     const s: SessionData = {
-      owner_id: data.owner_id,
-      team_name: data.team_name,
-      display_name: data.display_name,
-      role: data.role,
-      league_id: data.league_id,
+      owner_id: teamId,
+      team_name: teamName,
+      display_name: teamName,
+      role: "owner",
+      league_id: "",
     };
     setSession(s);
     localStorage.setItem("cfc_session", JSON.stringify(s));

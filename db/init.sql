@@ -160,6 +160,13 @@ create table if not exists meeting_minutes (
   emailed_at timestamptz null
 );
 
+create table if not exists team_sessions (
+  id uuid primary key default gen_random_uuid(),
+  team_id text not null,
+  team_name text not null,
+  created_at timestamptz default now()
+);
+
 -- ============================================================
 -- INDEXES
 -- ============================================================
@@ -174,6 +181,7 @@ create index if not exists idx_votes_version on votes(proposal_version_id);
 create index if not exists idx_votes_owner on votes(owner_id);
 create index if not exists idx_constitution_articles_league on constitution_articles(league_id);
 create index if not exists idx_constitution_sections_article on constitution_sections(article_id);
+create index if not exists idx_team_sessions_team on team_sessions(team_id);
 
 -- ============================================================
 -- REALTIME (enable for live meeting sync)
