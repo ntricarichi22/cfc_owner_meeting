@@ -23,7 +23,7 @@ export default function PresenterPage() {
 
   // Default to first item since current_agenda_item_id doesn't exist in MVP schema
   const currentItem = items[0] ?? null;
-  const currentIdx = 0;
+  const currentIdx = currentItem ? items.indexOf(currentItem) : -1;
 
   // Find proposal for the current item
   const proposal = currentItem ? (proposals.find((p) => p.agenda_item_id === currentItem.id) ?? null) : null;

@@ -3,6 +3,7 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSession, requireCommissioner, requireOwner } from "@/lib/session";
 import { VOTE_THRESHOLD, TOTAL_OWNERS } from "@/lib/types";
+import type { ConstitutionSection } from "@/lib/types";
 
 const sb = () => getSupabaseServer();
 
@@ -107,7 +108,7 @@ export async function createAgendaItem(meetingId: string, fields: {
   if (fields.category === "proposal" && data) {
     const { data: proposal, error: pErr } = await sb()
       .from("proposals")
-      .insert({ meeting_id: meetingId, agenda_item_id: data.id, title: fields.title })
+      .insert({ meeting_id: meetingId, agenda_item_id: data.id, title: fields.title, status: "draft" })
       .select()
       .single();
     if (pErr) throw new Error(pErr.message);
@@ -434,8 +435,7 @@ export async function createAgendaSection(_meetingId: string, _title: string, _s
 export async function updateAgendaSection(_id: string, _fields: Record<string, unknown>) {}
 export async function deleteAgendaSection(_id: string) {}
 export async function getConstitutionArticles(_year?: number) { return []; }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getConstitutionSectionByAnchor(_anchor: string): Promise<any> { return null; }
+export async function getConstitutionSectionByAnchor(_anchor: string): Promise<ConstitutionSection | null> { return null; }
 export async function createConstitutionArticle(_fields: Record<string, unknown>) {}
 export async function updateConstitutionArticle(_id: string, _fields: Record<string, unknown>) {}
 export async function deleteConstitutionArticle(_id: string) {}
