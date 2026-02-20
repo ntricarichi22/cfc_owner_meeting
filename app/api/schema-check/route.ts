@@ -133,11 +133,11 @@ export async function GET() {
     const missing: Record<string, string[]> = {};
     for (const [table, columns] of Object.entries(requiredSchema)) {
       const cols = existing.get(table);
-      const absent = columns.filter((c) => !cols?.has(c));
       if (!cols) {
         missing[table] = columns;
-      } else if (absent.length > 0) {
-        missing[table] = absent;
+      } else {
+        const absent = columns.filter((c) => !cols.has(c));
+        if (absent.length > 0) missing[table] = absent;
       }
     }
 
