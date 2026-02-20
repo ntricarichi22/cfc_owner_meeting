@@ -9,6 +9,7 @@ import type {
   AgendaItem,
   Proposal,
   ProposalVersion,
+  Amendment,
 } from "@/lib/types";
 
 export default function MeetingOwnerPage() {
@@ -19,6 +20,11 @@ export default function MeetingOwnerPage() {
   const [items, setItems] = useState<AgendaItem[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [proposals, setProposals] = useState<(Proposal & { proposal_versions?: ProposalVersion[] })[]>([]);
+  const [amendments, setAmendments] = useState<Amendment[]>([]);
+  const [showAmendmentForm, setShowAmendmentForm] = useState(false);
+  const [amendText, setAmendText] = useState("");
+  const [amendRationale, setAmendRationale] = useState("");
+  const [submittingAmendment, setSubmittingAmendment] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [meetingNotFound, setMeetingNotFound] = useState(false);
 
@@ -89,6 +95,70 @@ export default function MeetingOwnerPage() {
     const nextIdx = direction === "next" ? selectedIdx + 1 : selectedIdx - 1;
     if (nextIdx >= 0 && nextIdx < items.length) {
       setSelectedItemId(items[nextIdx].id);
+    }
+  };
+
+  useEffect(() => {
+    const loadAmendments = async () => {
+      if (!proposal) {
+        setAmendments([]);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/amendments?proposalId=${proposal.id}`);
+        if (!res.ok) return;
+        const data: Amendment[] = await res.json();
+        setAmendments(data);
+      } catch {
+        // ignore polling errors
+      }
+    };
+    loadAmendments();
+  }, [proposal]);
+
+  const handleSubmitAmendment = async () => {
+    if (!proposal || !amendText.trim()) return;
+    setSubmittingAmendment(true);
+    try {
+      const res = await fetch("/api/amendments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proposalId: proposal.id,
+          suggestedText: amendText,
+          rationale: amendRationale || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to submit amendment");
+      setAmendText("");
+      setAmendRationale("");
+      setShowAmendmentForm(false);
+      const refreshed = await fetch(`/api/amendments?proposalId=${proposal.id}`);
+      if (refreshed.ok) setAmendments(await refreshed.json());
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to submit amendment");
+    } finally {
+      setSubmittingAmendment(false);
+    }
+  };
+
+  const handleReviewAmendment = async (amendmentId: string, action: "accept" | "reject") => {
+    if (!proposal) return;
+    try {
+      const res = await fetch("/api/amendments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amendmentId, action }),
+      });
+      if (!res.ok) throw new Error(`Failed to ${action} amendment`);
+      const [proposalsRes, amendmentsRes] = await Promise.all([
+        fetch(`/api/proposals?meetingId=${meeting?.id}`),
+        fetch(`/api/amendments?proposalId=${proposal.id}`),
+      ]);
+      if (proposalsRes.ok) setProposals(await proposalsRes.json());
+      if (amendmentsRes.ok) setAmendments(await amendmentsRes.json());
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : `Failed to ${action} amendment`);
     }
   };
 
@@ -236,6 +306,89 @@ export default function MeetingOwnerPage() {
                       </div>
                     </div>
                   )}
+
+                  <div className="bg-gray-900 rounded-lg p-6 border border-gray-800 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-400 uppercase">Amendments</h3>
+                      <button
+                        onClick={() => setShowAmendmentForm((v) => !v)}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-xs font-semibold"
+                      >
+                        Submit Amendment
+                      </button>
+                    </div>
+
+                    {showAmendmentForm && (
+                      <div className="space-y-2 bg-black/50 rounded p-4 border border-gray-700">
+                        <textarea
+                          value={amendText}
+                          onChange={(e) => setAmendText(e.target.value)}
+                          placeholder="Suggested text"
+                          className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm text-white placeholder-gray-500 min-h-[80px]"
+                        />
+                        <textarea
+                          value={amendRationale}
+                          onChange={(e) => setAmendRationale(e.target.value)}
+                          placeholder="Rationale"
+                          className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm text-white placeholder-gray-500"
+                        />
+                        <button
+                          onClick={handleSubmitAmendment}
+                          disabled={!amendText.trim() || submittingAmendment}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded text-sm font-semibold"
+                        >
+                          {submittingAmendment ? "Submitting..." : "Submit"}
+                        </button>
+                      </div>
+                    )}
+
+                    {amendments.length === 0 ? (
+                      <p className="text-sm text-gray-500">No amendments submitted.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {amendments.map((a) => (
+                          <div key={a.id} className="bg-black/50 rounded p-3 border border-gray-700">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1">
+                                <p className="text-sm text-gray-200 whitespace-pre-wrap">{a.proposed_text}</p>
+                                {a.rationale && (
+                                  <p className="text-xs text-gray-400 mt-1 italic">Rationale: {a.rationale}</p>
+                                )}
+                                <div className="flex items-center gap-2 mt-1">
+                                  {a.submitted_by_team && (
+                                    <span className="text-xs text-gray-500">by {a.submitted_by_team}</span>
+                                  )}
+                                  <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${
+                                    a.status === "accepted" ? "bg-green-800 text-green-200" :
+                                    a.status === "rejected" ? "bg-red-800 text-red-200" :
+                                    "bg-yellow-800 text-yellow-200"
+                                  }`}>
+                                    {a.status}
+                                  </span>
+                                </div>
+                              </div>
+                              {isCommissioner && a.status === "pending" && (
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleReviewAmendment(a.id, "accept")}
+                                    className="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-xs font-semibold"
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    onClick={() => handleReviewAmendment(a.id, "reject")}
+                                    className="px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-xs font-semibold"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 

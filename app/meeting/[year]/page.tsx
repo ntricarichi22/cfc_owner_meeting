@@ -718,7 +718,7 @@ export default function MeetingPage({
                                   </span>
                                 </div>
                               </div>
-                              {isCommissioner && a.status === "submitted" && (
+                              {isCommissioner && (a.status === "pending" || a.status === "submitted") && (
                                 <div className="ml-3 flex gap-2 flex-shrink-0">
                                   <button
                                     onClick={() => handlePromoteAmendment(a.id)}

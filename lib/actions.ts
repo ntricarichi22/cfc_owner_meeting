@@ -173,7 +173,7 @@ export async function getAmendments(proposalId: string) {
     .from("amendments")
     .select("*")
     .eq("proposal_id", proposalId)
-    .order("created_at");
+    .order("created_at", { ascending: false });
   return data || [];
 }
 
@@ -184,7 +184,7 @@ export async function submitAmendment(proposalId: string, proposedText: string, 
     proposed_text: proposedText,
     rationale: rationale || null,
     submitted_by_team: session.team_name,
-    status: "submitted",
+    status: "pending",
   });
   if (error) throw new Error(error.message);
 

@@ -82,8 +82,8 @@ create table if not exists amendments (
   rationale         text,
   submitted_by_team text,
   created_at        timestamptz not null default now(),
-  status            text not null default 'submitted'
-                      check (status in ('submitted','accepted','rejected','withdrawn'))
+  status            text not null default 'pending'
+                      check (status in ('pending','submitted','accepted','rejected','withdrawn'))
 );
 
 -- ============================================================
