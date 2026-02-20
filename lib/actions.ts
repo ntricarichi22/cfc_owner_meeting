@@ -187,18 +187,34 @@ export async function submitAmendment(proposalId: string, proposedText: string, 
     status: "submitted",
   });
   if (error) throw new Error(error.message);
+
+  // Look up meeting_id for audit
+  const { data: proposal } = await sb()
+    .from("proposals")
+    .select("meeting_id")
+    .eq("id", proposalId)
+    .single();
+  if (proposal) {
+    await logAuditEvent({
+      meetingId: proposal.meeting_id,
+      proposalId,
+      eventType: "amendment_submitted",
+      payload: { submitted_by_team: session.team_name },
+    });
+  }
 }
 
 export async function promoteAmendment(amendmentId: string) {
   await requireCommissioner();
   const { data: amendment } = await sb()
     .from("amendments")
-    .select("*, proposal:proposals!amendments_proposal_id_fkey(id)")
+    .select("*, proposal:proposals!amendments_proposal_id_fkey(id, meeting_id)")
     .eq("id", amendmentId)
     .single();
   if (!amendment) throw new Error("Amendment not found");
 
-  const proposalId = (amendment.proposal as unknown as { id: string }).id;
+  const proposal = amendment.proposal as unknown as { id: string; meeting_id: string };
+  const proposalId = proposal.id;
 
   // Get current max version number
   const { data: versions } = await sb()
@@ -226,10 +242,46 @@ export async function promoteAmendment(amendmentId: string) {
     proposal_id: proposalId,
     version_number: nextVersion,
     full_text: amendment.proposed_text,
+    rationale: amendment.rationale || null,
     created_by_team: session?.team_name || null,
     is_active: true,
   });
   if (error) throw new Error(error.message);
+
+  // Audit events
+  await logAuditEvent({
+    meetingId: proposal.meeting_id,
+    proposalId,
+    eventType: "amendment_accepted",
+    payload: { amendment_id: amendmentId, new_version_number: nextVersion },
+  });
+  await logAuditEvent({
+    meetingId: proposal.meeting_id,
+    proposalId,
+    eventType: "active_version_changed",
+    payload: { new_version_number: nextVersion },
+  });
+}
+
+export async function rejectAmendment(amendmentId: string) {
+  await requireCommissioner();
+  const { data: amendment } = await sb()
+    .from("amendments")
+    .select("*, proposal:proposals!amendments_proposal_id_fkey(id, meeting_id)")
+    .eq("id", amendmentId)
+    .single();
+  if (!amendment) throw new Error("Amendment not found");
+
+  const { error } = await sb().from("amendments").update({ status: "rejected" }).eq("id", amendmentId);
+  if (error) throw new Error(error.message);
+
+  const proposal = amendment.proposal as unknown as { id: string; meeting_id: string };
+  await logAuditEvent({
+    meetingId: proposal.meeting_id,
+    proposalId: proposal.id,
+    eventType: "amendment_rejected",
+    payload: { amendment_id: amendmentId },
+  });
 }
 
 // ─── Voting ───────────────────────────────────────────────
