@@ -118,6 +118,12 @@ export default function MeetingOwnerPage() {
     loadAmendments();
   }, [proposal]);
 
+  useEffect(() => {
+    if (!amendmentSuccess) return;
+    const timeout = setTimeout(() => setAmendmentSuccess(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [amendmentSuccess]);
+
   const handleSubmitAmendment = async () => {
     if (!proposal || !amendText.trim()) return;
     setSubmittingAmendment(true);
@@ -129,7 +135,7 @@ export default function MeetingOwnerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           proposalId: proposal.id,
-          suggestedText: amendText,
+          proposedText: amendText,
           rationale: amendRationale || undefined,
         }),
       });

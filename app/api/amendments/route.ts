@@ -63,23 +63,26 @@ export async function POST(req: NextRequest) {
       { status: sessionByTeamId.status || 500 }
     );
   }
-  const sessionByName = await sb
-    .from("team_sessions")
-    .select("team_name")
-    .eq("team_name", sessionLookup)
-    .order("created_at", { ascending: false })
-    .limit(1);
-  if (sessionByName.error) {
-    return NextResponse.json(
-      {
-        error: "Supabase error",
-        code: sessionByName.error.code,
-        message: sessionByName.error.message,
-      },
-      { status: sessionByName.status || 500 }
-    );
+  let teamSession = sessionByTeamId.data?.[0];
+  if (!teamSession) {
+    const sessionByName = await sb
+      .from("team_sessions")
+      .select("team_name")
+      .eq("team_name", sessionLookup)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (sessionByName.error) {
+      return NextResponse.json(
+        {
+          error: "Supabase error",
+          code: sessionByName.error.code,
+          message: sessionByName.error.message,
+        },
+        { status: sessionByName.status || 500 }
+      );
+    }
+    teamSession = sessionByName.data?.[0];
   }
-  const teamSession = sessionByTeamId.data?.[0] || sessionByName.data?.[0];
   if (!teamSession) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -91,15 +94,13 @@ export async function POST(req: NextRequest) {
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
-  const { proposalId, suggestedText, proposedText, rationale } = body as {
+  const { proposalId, proposedText, rationale } = body as {
     proposalId?: string;
-    suggestedText?: string;
     proposedText?: string;
     rationale?: string;
   };
-  const amendmentText = proposedText ?? suggestedText;
 
-  if (!proposalId || !amendmentText?.trim()) {
+  if (!proposalId || !proposedText?.trim()) {
     return NextResponse.json(
       { error: "proposalId is required and proposedText cannot be empty" },
       { status: 400 }
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
 
   const result = await sb.from("amendments").insert({
     proposal_id: proposalId,
-    proposed_text: amendmentText,
+    proposed_text: proposedText,
     rationale: rationale || null,
     submitted_by_team: teamSession.team_name,
     status: "pending",
