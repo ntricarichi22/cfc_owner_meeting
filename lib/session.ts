@@ -37,7 +37,7 @@ async function sign(payload: string): Promise<string> {
 async function verify(payload: string, signature: string): Promise<boolean> {
   const key = await getKey();
   const sig = fromHex(signature);
-  return crypto.subtle.verify("HMAC", key, sig, encoder.encode(payload));
+  return crypto.subtle.verify("HMAC", key, sig.buffer as ArrayBuffer, encoder.encode(payload));
 }
 
 export interface SessionPayload {
