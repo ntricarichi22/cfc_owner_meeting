@@ -337,11 +337,19 @@ export async function tallyVotes(agendaItemId: string) {
 
   const { data: votes } = await sb()
     .from("votes")
-    .select("choice")
+    .select("choice, owner_id")
     .eq("proposal_version_id", activeVersion.id);
 
   if (!votes || votes.length < TOTAL_OWNERS) {
-    throw new Error(`All ${TOTAL_OWNERS} owners must vote before tallying. Current: ${votes?.length || 0}`);
+    // Find who hasn't voted
+    const session = await getSession();
+    const { data: allOwners } = await sb()
+      .from("owners")
+      .select("id, team_name")
+      .eq("league_id", session!.league_id);
+    const votedIds = new Set((votes || []).map((v) => v.owner_id));
+    const missing = (allOwners || []).filter((o) => !votedIds.has(o.id)).map((o) => o.team_name);
+    throw new Error(`All ${TOTAL_OWNERS} owners must vote before tallying. Missing: ${missing.join(", ")}`);
   }
 
   const yesCount = votes.filter((v) => v.choice === "yes").length;

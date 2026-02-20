@@ -442,7 +442,6 @@ export default function MeetingPage({
                 <Timer
                   durationSeconds={currentItem.timer_duration_seconds || 600}
                   startedAt={currentItem.timer_started_at}
-                  pausedAt={currentItem.timer_paused_at}
                   remainingSeconds={currentItem.timer_remaining_seconds}
                   isCommissioner={isCommissioner}
                   onStart={() => startTimer(currentItem.id).then(loadMeetingData)}

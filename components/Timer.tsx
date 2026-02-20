@@ -5,7 +5,6 @@ import { useEffect, useState, useCallback } from "react";
 interface TimerProps {
   durationSeconds: number;
   startedAt: string | null;
-  pausedAt: string | null;
   remainingSeconds: number | null;
   isCommissioner: boolean;
   onStart: () => void;
