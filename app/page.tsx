@@ -68,7 +68,7 @@ export default function Home() {
         setError("Team not found");
         return;
       }
-      await selectTeam(team.teamName);
+      await selectTeam(team.teamId, team.teamName);
       // Reload meetings after login
       const r = await fetch("/api/meetings");
       setMeetings(await r.json());
