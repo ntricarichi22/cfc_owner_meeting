@@ -160,9 +160,17 @@ create table if not exists meeting_minutes (
   emailed_at timestamptz null
 );
 
+create table if not exists team_sessions (
+  id uuid primary key default gen_random_uuid(),
+  team_id text not null,
+  team_name text not null,
+  created_at timestamptz default now()
+);
+
 -- ============================================================
 -- INDEXES
 -- ============================================================
+create index if not exists idx_team_sessions_created on team_sessions(created_at);
 create index if not exists idx_owners_league on owners(league_id);
 create index if not exists idx_owners_team on owners(team_name);
 create index if not exists idx_meetings_league on meetings(league_id);
