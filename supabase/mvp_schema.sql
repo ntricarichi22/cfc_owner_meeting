@@ -112,6 +112,21 @@ create table if not exists audit_events (
 );
 
 -- ============================================================
+-- RPC FUNCTIONS
+-- ============================================================
+
+-- Used by /api/schema-check to inspect public table columns
+create or replace function get_public_columns()
+returns table(table_name text, column_name text)
+language sql
+security definer
+as $$
+  select c.table_name::text, c.column_name::text
+  from information_schema.columns c
+  where c.table_schema = 'public';
+$$;
+
+-- ============================================================
 -- INDEXES
 -- ============================================================
 create index if not exists idx_agenda_items_meeting    on agenda_items(meeting_id);
