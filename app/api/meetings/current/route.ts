@@ -12,13 +12,11 @@ export async function GET() {
   const { data, error } = await sb
     .from("meetings")
     .select("*")
-    .eq("status", "live")
-    .order("year", { ascending: false })
-    .limit(1)
+    .eq("status", "active")
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: "Supabase error", details: error }, { status: 500 });
+    return NextResponse.json({ error: "Supabase error", details: error.message, code: error.code }, { status: 500 });
   }
 
   if (!data) {
