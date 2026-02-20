@@ -23,6 +23,7 @@ export default function Home() {
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [error, setError] = useState("");
+  const [selectedTeamId, setSelectedTeamId] = useState("");
 
   useEffect(() => {
     fetch("/api/teams")
@@ -55,10 +56,19 @@ export default function Home() {
     }
   }, [session]);
 
-  const handleSelect = async (teamName: string) => {
+  const handleSubmit = async () => {
     try {
       setError("");
-      await selectTeam(teamName);
+      if (!selectedTeamId || teams.length === 0) {
+        setError("Team not found");
+        return;
+      }
+      const team = teams.find((t) => t.teamId === selectedTeamId);
+      if (!team) {
+        setError("Team not found");
+        return;
+      }
+      await selectTeam(team.teamName);
       // Reload meetings after login
       const r = await fetch("/api/meetings");
       setMeetings(await r.json());
@@ -88,20 +98,29 @@ export default function Home() {
             {teamsLoading ? (
               <p className="text-gray-500">Loading teams…</p>
             ) : (
-              <select
-                className="bg-black border border-gray-700 p-3 rounded-lg text-white w-64"
-                defaultValue=""
-                onChange={(e) => {
-                  if (e.target.value) handleSelect(e.target.value);
-                }}
-              >
-                <option value="">-- Choose Team --</option>
-                {teams.map((t) => (
-                  <option key={t.teamId} value={t.teamName}>
-                    {t.teamName}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  className="bg-black border border-gray-700 p-3 rounded-lg text-white w-64"
+                  defaultValue=""
+                  onChange={(e) => {
+                    setSelectedTeamId(e.target.value);
+                  }}
+                >
+                  <option value="">-- Choose Team --</option>
+                  {teams.map((t) => (
+                    <option key={t.teamId} value={t.teamId}>
+                      {t.teamName}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg disabled:opacity-50"
+                  disabled={!selectedTeamId}
+                  onClick={handleSubmit}
+                >
+                  Continue
+                </button>
+              </>
             )}
           </div>
         ) : (
