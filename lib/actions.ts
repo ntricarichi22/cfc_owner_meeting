@@ -461,18 +461,19 @@ export async function resetTimer(agendaItemId: string) {
     .select("timer_duration_seconds, meeting_id")
     .eq("id", agendaItemId)
     .single();
+  if (!item) throw new Error("Item not found");
 
   await sb()
     .from("agenda_items")
     .update({
       timer_started_at: null,
       timer_paused_at: null,
-      timer_remaining_seconds: item?.timer_duration_seconds || 600,
+      timer_remaining_seconds: item.timer_duration_seconds || 600,
     })
     .eq("id", agendaItemId);
 
   await logAuditEvent({
-    meetingId: item?.meeting_id,
+    meetingId: item.meeting_id,
     eventType: "timer_reset",
     payload: { agenda_item_id: agendaItemId, actor: session.team_name },
   });
