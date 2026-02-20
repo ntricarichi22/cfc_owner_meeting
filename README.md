@@ -46,6 +46,21 @@ NEXT_PUBLIC_SITE_URL=https://your-app.vercel.app
    alter publication supabase_realtime add table amendments;
    ```
 
+### 2b. MVP Schema (Quick Start)
+
+If you only need the MVP tables (no league/owner scaffolding), run the single
+file **`supabase/mvp_schema.sql`** instead:
+
+1. Open your Supabase project dashboard → **SQL Editor**.
+2. Click **New Query**.
+3. Paste the entire contents of [`supabase/mvp_schema.sql`](supabase/mvp_schema.sql) into the editor.
+4. Click **Run** (or press Ctrl/⌘ + Enter).
+
+The script creates all eight MVP tables (`constitution_sections`, `meetings`,
+`agenda_items`, `proposals`, `proposal_versions`, `amendments`, `votes`,
+`audit_events`), adds indexes, and inserts seed data (one meeting for the
+current year, four agenda items, two sample proposals with v1 versions).
+
 ### 3. Run Locally
 
 ```bash
