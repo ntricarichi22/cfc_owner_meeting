@@ -36,6 +36,7 @@ import {
   submitAmendment,
   getAmendments,
   promoteAmendment,
+  rejectAmendment,
   updateMeetingStatus,
   getOwners,
 } from "@/lib/actions";
@@ -85,9 +86,10 @@ export default function MeetingPage({
   const [amendText, setAmendText] = useState("");
   const [amendRationale, setAmendRationale] = useState("");
   const [submittingAmendment, setSubmittingAmendment] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
-  const currentItem = items.find((i) => i.id === meeting?.current_agenda_item_id) ?? null;
-  const activeVersion = versions.find((v) => v.status === "active" || v.status === "final") ?? null;
+  const currentItem = items.find((i) => i.id === selectedItemId) ?? null;
+  const activeVersion = versions.find((v) => v.is_active) ?? null;
 
   const loadMeetingData = useCallback(async () => {
     try {
@@ -120,7 +122,7 @@ export default function MeetingPage({
       return;
     }
 
-    if (currentItem.type === "proposal") {
+    if (currentItem.category === "proposal") {
       try {
         const p = await getProposal(currentItem.id);
         setProposal(p);
@@ -132,17 +134,19 @@ export default function MeetingPage({
           setVersions(vers);
           setConstitutionLinks(links);
 
-          const active = vers.find((v) => v.status === "active" || v.status === "final");
+          const active = vers.find((v) => v.is_active);
           if (active) {
-            const [v, mv, amends] = await Promise.all([
+            const [v, mv] = await Promise.all([
               getVotes(active.id),
               getMyVote(active.id),
-              getAmendments(active.id),
             ]);
             setVotes(v);
             setMyVote(mv);
-            setAmendments(amends);
           }
+
+          // Amendments are per proposal, not per version
+          const amends = await getAmendments(p.id);
+          setAmendments(amends);
         }
       } catch {
         // ignore
@@ -172,19 +176,21 @@ export default function MeetingPage({
 
   // Handlers
   const handleSetCurrent = async (itemId: string) => {
-    if (!meeting || !isCommissioner) return;
-    try {
-      await setCurrentAgendaItem(meeting.id, itemId);
-      setTallyResult(null);
-      await loadMeetingData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to set agenda item");
+    if (!meeting) return;
+    setSelectedItemId(itemId);
+    setTallyResult(null);
+    if (isCommissioner) {
+      try {
+        await setCurrentAgendaItem(meeting.id, itemId);
+      } catch {
+        // ignore audit failures
+      }
     }
   };
 
   const handleNavItem = async (direction: "prev" | "next") => {
     if (!meeting) return;
-    const idx = items.findIndex((i) => i.id === meeting.current_agenda_item_id);
+    const idx = items.findIndex((i) => i.id === selectedItemId);
     const nextIdx = direction === "next" ? idx + 1 : idx - 1;
     if (nextIdx >= 0 && nextIdx < items.length) {
       await handleSetCurrent(items[nextIdx].id);
@@ -204,21 +210,21 @@ export default function MeetingPage({
   };
 
   const handleOpenVoting = async () => {
-    if (!currentItem) return;
+    if (!proposal) return;
     try {
-      await openVoting(currentItem.id);
-      await loadMeetingData();
+      await openVoting(proposal.id);
+      await loadCurrentItemData();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to open voting");
     }
   };
 
   const handleTallyVotes = async () => {
-    if (!currentItem) return;
+    if (!proposal) return;
     try {
-      const result = await tallyVotes(currentItem.id);
+      const result = await tallyVotes(proposal.id);
       setTallyResult(result);
-      await loadMeetingData();
+      await loadCurrentItemData();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to tally votes");
     }
@@ -245,13 +251,13 @@ export default function MeetingPage({
   };
 
   const handleSubmitAmendment = async () => {
-    if (!activeVersion || !amendText.trim()) return;
+    if (!proposal || !amendText.trim()) return;
     setSubmittingAmendment(true);
     try {
-      await submitAmendment(activeVersion.id, amendText, amendRationale || undefined);
+      await submitAmendment(proposal.id, amendText, amendRationale || undefined);
       setAmendText("");
       setAmendRationale("");
-      const amends = await getAmendments(activeVersion.id);
+      const amends = await getAmendments(proposal.id);
       setAmendments(amends);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to submit amendment");
@@ -265,7 +271,19 @@ export default function MeetingPage({
       await promoteAmendment(amendmentId);
       await loadCurrentItemData();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to promote amendment");
+      setError(e instanceof Error ? e.message : "Failed to accept amendment");
+    }
+  };
+
+  const handleRejectAmendment = async (amendmentId: string) => {
+    try {
+      await rejectAmendment(amendmentId);
+      if (proposal) {
+        const amends = await getAmendments(proposal.id);
+        setAmendments(amends);
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to reject amendment");
     }
   };
 
@@ -301,9 +319,7 @@ export default function MeetingPage({
     );
   }
 
-  const votedOwnerIds = new Set(votes.map((v) => v.owner_id));
-  const missingVoters = owners.filter((o) => !votedOwnerIds.has(o.id));
-  const currentIdx = items.findIndex((i) => i.id === meeting.current_agenda_item_id);
+  const currentIdx = items.findIndex((i) => i.id === selectedItemId);
 
   // Group items by section
   const unsectioned = items.filter((i) => !i.section_id);
@@ -331,9 +347,8 @@ export default function MeetingPage({
       {/* Meeting header */}
       <div className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Owners Meeting {meeting.club_year}</h1>
+          <h1 className="text-2xl font-bold">Owners Meeting {meeting.year}</h1>
           <p className="text-sm text-gray-400">
-            {meeting.meeting_date || "Date TBD"} •{" "}
             <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
               meeting.status === "live" ? "bg-green-600 text-white" :
               meeting.status === "finalized" ? "bg-gray-600 text-gray-300" :
@@ -370,7 +385,7 @@ export default function MeetingPage({
               <AgendaListItem
                 key={item.id}
                 item={item}
-                isCurrent={item.id === meeting.current_agenda_item_id}
+                isCurrent={item.id === selectedItemId}
                 isCommissioner={isCommissioner}
                 onClick={() => handleSetCurrent(item.id)}
               />
@@ -386,7 +401,7 @@ export default function MeetingPage({
                   <AgendaListItem
                     key={item.id}
                     item={item}
-                    isCurrent={item.id === meeting.current_agenda_item_id}
+                    isCurrent={item.id === selectedItemId}
                     isCommissioner={isCommissioner}
                     onClick={() => handleSetCurrent(item.id)}
                   />
@@ -432,7 +447,7 @@ export default function MeetingPage({
                   </span>
                   <h2 className="text-3xl font-bold mt-2">{currentItem.title}</h2>
                   <p className="text-sm text-gray-400 mt-1">
-                    {currentItem.type === "proposal" ? "📋 Proposal" : "📌 Admin Item"}
+                    {currentItem.category === "proposal" ? "📋 Proposal" : "📌 Admin Item"}
                   </p>
                 </div>
               </div>
@@ -452,7 +467,7 @@ export default function MeetingPage({
               </div>
 
               {/* Proposal details */}
-              {currentItem.type === "proposal" && proposal && (
+              {currentItem.category === "proposal" && proposal && (
                 <>
                   <div className="bg-gray-900 rounded-lg p-6 border border-gray-800 space-y-4">
                     {proposal.summary && (
@@ -487,10 +502,43 @@ export default function MeetingPage({
                   {activeVersion && (
                     <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
                       <h3 className="text-sm font-semibold text-gray-400 uppercase mb-2">
-                        Proposal Text (v{activeVersion.version_number})
+                        Current Active Version (v{activeVersion.version_number})
                       </h3>
                       <div className="text-gray-200 whitespace-pre-wrap bg-black/50 rounded p-4 border border-gray-700">
                         {activeVersion.full_text || <span className="text-gray-500 italic">No text provided.</span>}
+                      </div>
+                      {activeVersion.rationale && (
+                        <p className="text-xs text-gray-400 mt-2 italic">Rationale: {activeVersion.rationale}</p>
+                      )}
+                      {activeVersion.created_by_team && (
+                        <p className="text-xs text-gray-500 mt-1">Created by: {activeVersion.created_by_team}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Past versions list */}
+                  {versions.filter((v) => !v.is_active).length > 0 && (
+                    <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
+                      <h3 className="text-sm font-semibold text-gray-400 uppercase mb-3">Past Versions</h3>
+                      <div className="space-y-3">
+                        {versions
+                          .filter((v) => !v.is_active)
+                          .sort((a, b) => b.version_number - a.version_number)
+                          .map((v) => (
+                            <div key={v.id} className="bg-black/50 rounded p-3 border border-gray-700">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-medium text-gray-300">v{v.version_number}</span>
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">superseded</span>
+                                {v.created_by_team && (
+                                  <span className="text-xs text-gray-500">by {v.created_by_team}</span>
+                                )}
+                              </div>
+                              <pre className="text-xs text-gray-500 whitespace-pre-wrap max-h-32 overflow-y-auto">{v.full_text}</pre>
+                              {v.rationale && (
+                                <p className="text-xs text-gray-500 mt-1 italic">Rationale: {v.rationale}</p>
+                              )}
+                            </div>
+                          ))}
                       </div>
                     </div>
                   )}
@@ -518,7 +566,7 @@ export default function MeetingPage({
                     <h3 className="text-sm font-semibold text-gray-400 uppercase mb-3">Voting</h3>
 
                     {/* Owner voting buttons */}
-                    {currentItem.status === "voting_open" && activeVersion && (
+                    {proposal.status === "open" && activeVersion && (
                       <div className="mb-4">
                         <p className="text-sm text-gray-400 mb-2">
                           {myVote ? `You voted: ${myVote.toUpperCase()}. You may change your vote.` : "Cast your vote:"}
@@ -549,65 +597,56 @@ export default function MeetingPage({
                     )}
 
                     {/* Commissioner voting controls */}
-                    {isCommissioner && (
-                      <div className="space-y-3">
-                        <div className="flex gap-2 flex-wrap">
-                          {currentItem.status === "in_discussion" && (
-                            <button onClick={handleOpenVoting} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 rounded text-sm font-semibold">
-                              Open Voting
-                            </button>
-                          )}
-                          {currentItem.status === "voting_open" && (
-                            <button
-                              onClick={handleTallyVotes}
-                              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded text-sm font-semibold"
-                            >
-                              Tally Votes
-                            </button>
-                          )}
-                        </div>
+                    {isCommissioner && proposal.status === "draft" && (
+                      <div className="flex gap-2 flex-wrap">
+                        <button onClick={handleOpenVoting} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 rounded text-sm font-semibold">
+                          Open Voting
+                        </button>
+                      </div>
+                    )}
 
-                        {/* Missing voters */}
-                        {currentItem.status === "voting_open" && missingVoters.length > 0 && (
-                          <div className="bg-yellow-900/30 border border-yellow-800 rounded p-3">
-                            <p className="text-xs text-yellow-400 font-semibold mb-1">
-                              Missing votes ({missingVoters.length} of {TOTAL_OWNERS}):
-                            </p>
-                            <p className="text-xs text-yellow-300">
-                              {missingVoters.map((o) => o.team_name).join(", ")}
-                            </p>
-                          </div>
+                    {/* Vote count display */}
+                    {proposal.status === "open" && votes.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs text-gray-400">
+                          Votes cast: {votes.length} / {TOTAL_OWNERS}
+                        </p>
+                        {isCommissioner && (
+                          <button
+                            onClick={handleTallyVotes}
+                            className="mt-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded text-sm font-semibold"
+                          >
+                            Tally Votes
+                          </button>
                         )}
                       </div>
                     )}
 
-                    {/* Tally results */}
-                    {currentItem.status === "tallied" && (
+                    {/* Status display */}
+                    {(proposal.status === "passed" || proposal.status === "failed") && (
                       <div className="mt-4">
                         <div className="grid grid-cols-3 gap-4 text-center">
                           <div className="bg-green-900/40 rounded-lg p-4 border border-green-800">
                             <p className="text-3xl font-bold text-green-400">
-                              {votes.filter((v) => v.choice === "yes").length}
+                              {votes.filter((v) => v.vote === "yes").length}
                             </p>
                             <p className="text-xs text-green-500 uppercase">Yes</p>
                           </div>
                           <div className="bg-red-900/40 rounded-lg p-4 border border-red-800">
                             <p className="text-3xl font-bold text-red-400">
-                              {votes.filter((v) => v.choice === "no").length}
+                              {votes.filter((v) => v.vote === "no").length}
                             </p>
                             <p className="text-xs text-red-500 uppercase">No</p>
                           </div>
                           <div className={`rounded-lg p-4 border ${
-                            votes.filter((v) => v.choice === "yes").length >= VOTE_THRESHOLD
+                            proposal.status === "passed"
                               ? "bg-green-900/40 border-green-800"
                               : "bg-red-900/40 border-red-800"
                           }`}>
                             <p className={`text-3xl font-bold ${
-                              votes.filter((v) => v.choice === "yes").length >= VOTE_THRESHOLD
-                                ? "text-green-400"
-                                : "text-red-400"
+                              proposal.status === "passed" ? "text-green-400" : "text-red-400"
                             }`}>
-                              {votes.filter((v) => v.choice === "yes").length >= VOTE_THRESHOLD ? "PASS" : "FAIL"}
+                              {proposal.status === "passed" ? "PASS" : "FAIL"}
                             </p>
                             <p className="text-xs text-gray-500 uppercase">
                               Requires {VOTE_THRESHOLD} Yes
@@ -628,7 +667,7 @@ export default function MeetingPage({
                     <h3 className="text-sm font-semibold text-gray-400 uppercase mb-3">Amendments</h3>
 
                     {/* Submit amendment form */}
-                    {activeVersion && currentItem.status !== "tallied" && currentItem.status !== "finalized" && (
+                    {proposal.status !== "passed" && proposal.status !== "failed" && (
                       <div className="mb-4 space-y-2 bg-black/50 rounded p-4 border border-gray-700">
                         <textarea
                           value={amendText}
@@ -661,21 +700,39 @@ export default function MeetingPage({
                           <div key={a.id} className="bg-black/50 rounded p-3 border border-gray-700">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                <p className="text-sm text-gray-200 whitespace-pre-wrap">{a.suggested_text}</p>
+                                <p className="text-sm text-gray-200 whitespace-pre-wrap">{a.proposed_text}</p>
                                 {a.rationale && (
                                   <p className="text-xs text-gray-400 mt-1 italic">Rationale: {a.rationale}</p>
                                 )}
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Status: <span className="font-semibold">{a.status}</span>
-                                </p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {a.submitted_by_team && (
+                                    <span className="text-xs text-gray-500">by {a.submitted_by_team}</span>
+                                  )}
+                                  <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${
+                                    a.status === "accepted" ? "bg-green-800 text-green-200" :
+                                    a.status === "rejected" ? "bg-red-800 text-red-200" :
+                                    a.status === "withdrawn" ? "bg-gray-700 text-gray-400" :
+                                    "bg-yellow-800 text-yellow-200"
+                                  }`}>
+                                    {a.status}
+                                  </span>
+                                </div>
                               </div>
                               {isCommissioner && a.status === "submitted" && (
-                                <button
-                                  onClick={() => handlePromoteAmendment(a.id)}
-                                  className="ml-3 px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded text-xs font-semibold flex-shrink-0"
-                                >
-                                  Promote
-                                </button>
+                                <div className="ml-3 flex gap-2 flex-shrink-0">
+                                  <button
+                                    onClick={() => handlePromoteAmendment(a.id)}
+                                    className="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-xs font-semibold"
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectAmendment(a.id)}
+                                    className="px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-xs font-semibold"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -707,31 +764,24 @@ function AgendaListItem({
   return (
     <button
       onClick={onClick}
-      disabled={!isCommissioner}
       className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors ${
         isCurrent
           ? "bg-blue-900/60 border border-blue-700 text-white"
-          : isCommissioner
-          ? "hover:bg-gray-800 text-gray-300"
-          : "text-gray-300 cursor-default"
+          : "hover:bg-gray-800 text-gray-300"
       }`}
     >
       <div className="flex items-center gap-2">
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-          item.status === "not_started" ? "bg-gray-600" :
-          item.status === "in_discussion" ? "bg-blue-500" :
-          item.status === "voting_open" ? "bg-yellow-500 animate-pulse" :
-          item.status === "tallied" ? "bg-purple-500" :
-          item.status === "finalized" ? "bg-green-500" :
-          "bg-gray-600"
+          isCurrent ? "bg-blue-500" : "bg-gray-600"
         }`} />
         <span className="text-sm truncate">{item.title}</span>
       </div>
       <div className="flex items-center gap-1 mt-0.5 ml-4">
-        <span className="text-[10px] text-gray-500">{item.type === "proposal" ? "📋" : "📌"}</span>
-        <span className={`text-[10px] px-1.5 py-0.5 rounded ${STATUS_COLORS[item.status ?? "not_started"]}`}>
-          {(item.status ?? "not_started").replace(/_/g, " ")}
+        <span className="text-[10px] text-gray-500">{item.category === "proposal" ? "📋" : "📌"}</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">
+          {item.category}
         </span>
+        {isCommissioner && <span className="text-[10px] text-gray-600">⚙</span>}
       </div>
     </button>
   );
