@@ -32,18 +32,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json().catch(() => null) as {
+  const body: unknown = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+  const { proposalId, suggestedText, rationale } = body as {
     proposalId?: string;
     suggestedText?: string;
     rationale?: string;
-  } | null;
+  };
 
-  if (!body?.proposalId || !body?.suggestedText?.trim()) {
-    return NextResponse.json({ error: "proposalId and suggestedText are required" }, { status: 400 });
+  if (!proposalId || !suggestedText?.trim()) {
+    return NextResponse.json(
+      { error: "proposalId is required and suggestedText cannot be empty" },
+      { status: 400 }
+    );
   }
 
   try {
-    await submitAmendment(body.proposalId, body.suggestedText, body.rationale);
+    await submitAmendment(proposalId, suggestedText, rationale);
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (e: unknown) {
     return NextResponse.json(
@@ -59,22 +66,24 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json().catch(() => null) as {
+  const body: unknown = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+  const { amendmentId, action } = body as {
     amendmentId?: string;
-    action?: "accept" | "reject";
-  } | null;
+    action?: string;
+  };
 
-  if (!body?.amendmentId || !body?.action) {
+  if (!amendmentId || (action !== "accept" && action !== "reject")) {
     return NextResponse.json({ error: "amendmentId and action are required" }, { status: 400 });
   }
 
   try {
-    if (body.action === "accept") {
-      await promoteAmendment(body.amendmentId);
-    } else if (body.action === "reject") {
-      await rejectAmendment(body.amendmentId);
+    if (action === "accept") {
+      await promoteAmendment(amendmentId);
     } else {
-      return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+      await rejectAmendment(amendmentId);
     }
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {

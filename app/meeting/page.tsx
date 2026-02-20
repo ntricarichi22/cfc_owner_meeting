@@ -110,7 +110,7 @@ export default function MeetingOwnerPage() {
         const data: Amendment[] = await res.json();
         setAmendments(data);
       } catch {
-        // ignore polling errors
+        // ignore amendment load errors
       }
     };
     loadAmendments();
