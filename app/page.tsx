@@ -5,12 +5,25 @@ import { useSession } from "@/components/TeamSelector";
 import Nav from "@/components/Nav";
 import Link from "next/link";
 
-interface Owner {
-  id: string;
-  team_name: string;
-  display_name: string;
-  role: string;
+interface Team {
+  id: number;
+  name: string;
 }
+
+const FALLBACK_TEAMS: Team[] = [
+  { id: 1, name: "Virginia Founders" },
+  { id: 2, name: "Team Alpha" },
+  { id: 3, name: "Team Bravo" },
+  { id: 4, name: "Team Charlie" },
+  { id: 5, name: "Team Delta" },
+  { id: 6, name: "Team Echo" },
+  { id: 7, name: "Team Foxtrot" },
+  { id: 8, name: "Team Golf" },
+  { id: 9, name: "Team Hotel" },
+  { id: 10, name: "Team India" },
+  { id: 11, name: "Team Juliet" },
+  { id: 12, name: "Team Kilo" },
+];
 
 interface Meeting {
   id: string;
@@ -21,15 +34,20 @@ interface Meeting {
 
 export default function Home() {
   const { session, loading, selectTeam, logout, isCommissioner } = useSession();
-  const [owners, setOwners] = useState<Owner[]>([]);
+  const [teams, setTeams] = useState<Team[]>(FALLBACK_TEAMS);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // Fetch owners list for team selector (using supabase browser or API)
     fetch("/api/owners")
       .then((r) => r.json())
-      .then(setOwners)
+      .then((data: { team_name: string }[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setTeams(
+            data.map((o, i) => ({ id: i + 1, name: o.team_name }))
+          );
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -80,9 +98,9 @@ export default function Home() {
               }}
             >
               <option value="">-- Choose Team --</option>
-              {owners.map((o) => (
-                <option key={o.id} value={o.team_name}>
-                  {o.team_name}
+              {teams.map((t) => (
+                <option key={t.id} value={t.name}>
+                  {t.name}
                 </option>
               ))}
             </select>
