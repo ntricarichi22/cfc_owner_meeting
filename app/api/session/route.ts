@@ -15,7 +15,14 @@ export async function POST(req: NextRequest) {
     .eq("team_name", team_name)
     .single();
 
-  if (error || !owner) {
+  if (error) {
+    return NextResponse.json(
+      { error: `Failed to load teams (status ${error.code || "unknown"})` },
+      { status: 500 }
+    );
+  }
+
+  if (!owner) {
     return NextResponse.json({ error: "Team not found" }, { status: 404 });
   }
 
