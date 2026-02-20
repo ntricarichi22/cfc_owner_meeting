@@ -64,7 +64,9 @@ export default function Home() {
     try {
       setError("");
       await selectTeam(teamName);
-      window.location.href = "/meeting";
+      // Reload meetings after login
+      const r = await fetch("/api/meetings");
+      setMeetings(await r.json());
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to select team");
     }
