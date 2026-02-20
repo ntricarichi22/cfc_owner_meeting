@@ -62,7 +62,7 @@ export default function ConstitutionPage() {
               {article.constitution_sections?.length > 0 ? (
                 <ul className="space-y-1 ml-4">
                   {article.constitution_sections
-                    .sort((a, b) => a.sort_order - b.sort_order)
+                    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
                     .map((section) => (
                       <li key={section.id}>
                         <Link

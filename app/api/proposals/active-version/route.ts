@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     .from("proposal_versions")
     .select("*")
     .eq("proposal_id", proposalId)
-    .in("status", ["active", "final"])
+    .eq("is_active", true)
     .order("version_number", { ascending: false })
     .limit(1)
     .maybeSingle();

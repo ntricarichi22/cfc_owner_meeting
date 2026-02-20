@@ -3,15 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Nav from "@/components/Nav";
-import Timer from "@/components/Timer";
 import { useSession } from "@/components/TeamSelector";
-import {
-  setCurrentAgendaItem,
-  startTimer,
-  pauseTimer,
-  resetTimer,
-  extendTimer,
-} from "@/lib/actions";
 import type {
   Meeting,
   AgendaItem,
@@ -26,13 +18,16 @@ export default function MeetingOwnerPage() {
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [items, setItems] = useState<AgendaItem[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [proposal, setProposal] = useState<Proposal | null>(null);
-  const [activeVersion, setActiveVersion] = useState<ProposalVersion | null>(null);
+  const [proposals, setProposals] = useState<(Proposal & { proposal_versions?: ProposalVersion[] })[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [meetingNotFound, setMeetingNotFound] = useState(false);
 
   const selectedItem = items.find((i) => i.id === selectedItemId) ?? null;
   const selectedIdx = items.findIndex((i) => i.id === selectedItemId);
+
+  // Find proposal for the selected agenda item
+  const proposal = proposals.find((p) => p.agenda_item_id === selectedItemId) ?? null;
+  const activeVersion = proposal?.proposal_versions?.find((v) => v.is_active) ?? null;
 
   // Redirect if no session
   useEffect(() => {
@@ -60,47 +55,22 @@ export default function MeetingOwnerPage() {
         const agendaItems: AgendaItem[] = await itemsRes.json();
         setItems(agendaItems);
 
-        // Default selection: current agenda item or first item
+        // Default selection: first item
         setSelectedItemId((prev) => {
-          if (m.current_agenda_item_id) return m.current_agenda_item_id;
           if (prev && agendaItems.some((i) => i.id === prev)) return prev;
           return agendaItems[0]?.id ?? null;
         });
+      }
+
+      // Load proposals
+      const proposalsRes = await fetch(`/api/proposals?meetingId=${m.id}`);
+      if (proposalsRes.ok) {
+        setProposals(await proposalsRes.json());
       }
     } catch {
       // ignore polling errors
     }
   }, []);
-
-  // Load proposal for selected item
-  const loadProposal = useCallback(async () => {
-    if (!selectedItem || selectedItem.type !== "proposal") {
-      setProposal(null);
-      setActiveVersion(null);
-      return;
-    }
-    try {
-      const res = await fetch(`/api/proposals?agendaItemId=${selectedItem.id}`);
-      if (!res.ok) {
-        setProposal(null);
-        setActiveVersion(null);
-        return;
-      }
-      const p = await res.json();
-      setProposal(p);
-
-      if (p?.id) {
-        const vRes = await fetch(`/api/proposals/active-version?proposalId=${p.id}`);
-        if (vRes.ok) {
-          setActiveVersion(await vRes.json());
-        } else {
-          setActiveVersion(null);
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, [selectedItem]);
 
   // Poll meeting data
   useEffect(() => {
@@ -110,42 +80,15 @@ export default function MeetingOwnerPage() {
     return () => clearInterval(interval);
   }, [session, loadMeeting]);
 
-  // Load proposal when selection changes
-  useEffect(() => {
-    loadProposal();
-  }, [loadProposal]);
-
   // Handlers
   const handleSelectItem = (itemId: string) => {
     setSelectedItemId(itemId);
   };
 
-  const handleNav = async (direction: "prev" | "next") => {
+  const handleNav = (direction: "prev" | "next") => {
     const nextIdx = direction === "next" ? selectedIdx + 1 : selectedIdx - 1;
     if (nextIdx >= 0 && nextIdx < items.length) {
-      const nextItemId = items[nextIdx].id;
-      setSelectedItemId(nextItemId);
-      if (isCommissioner && meeting) {
-        try {
-          await setCurrentAgendaItem(meeting.id, nextItemId);
-          await loadMeeting();
-        } catch (e: unknown) {
-          setError(e instanceof Error ? e.message : "Failed to navigate");
-        }
-      }
-    }
-  };
-
-  const handleTimerAction = async (action: "start" | "pause" | "reset" | "extend") => {
-    if (!selectedItem) return;
-    try {
-      if (action === "start") await startTimer(selectedItem.id);
-      else if (action === "pause") await pauseTimer(selectedItem.id);
-      else if (action === "reset") await resetTimer(selectedItem.id);
-      else if (action === "extend") await extendTimer(selectedItem.id);
-      await loadMeeting();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Timer action failed");
+      setSelectedItemId(items[nextIdx].id);
     }
   };
 
@@ -195,9 +138,9 @@ export default function MeetingOwnerPage() {
 
       {/* Meeting header */}
       <div className="bg-gray-900 border-b border-gray-800 px-6 py-4">
-        <h1 className="text-2xl font-bold">Owners Meeting {meeting.club_year}</h1>
+        <h1 className="text-2xl font-bold">{meeting.title}</h1>
         <p className="text-sm text-gray-400">
-          {meeting.meeting_date || "Date TBD"} •{" "}
+          {meeting.year} •{" "}
           <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-600 text-white">
             LIVE
           </span>
@@ -220,13 +163,10 @@ export default function MeetingOwnerPage() {
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    item.id === meeting.current_agenda_item_id ? "bg-green-500 animate-pulse" : "bg-gray-600"
-                  }`} />
                   <span className="text-sm truncate">{item.title}</span>
                 </div>
                 <span className="text-[10px] text-gray-500 ml-4">
-                  {item.type === "proposal" ? "📋 Proposal" : "📌 Admin"}
+                  {item.category === "proposal" ? "📋 Proposal" : "📌 General"}
                 </span>
               </button>
             ))}
@@ -263,26 +203,12 @@ export default function MeetingOwnerPage() {
               <div>
                 <h2 className="text-3xl font-bold">{selectedItem.title}</h2>
                 <p className="text-sm text-gray-400 mt-1">
-                  {selectedItem.type === "proposal" ? "📋 Proposal" : "📌 Admin Item"}
+                  {selectedItem.category === "proposal" ? "📋 Proposal" : "📌 General Item"}
                 </p>
               </div>
 
-              {/* Timer */}
-              <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
-                <Timer
-                  durationSeconds={selectedItem.timer_duration_seconds || 600}
-                  startedAt={selectedItem.timer_started_at}
-                  remainingSeconds={selectedItem.timer_remaining_seconds}
-                  isCommissioner={isCommissioner}
-                  onStart={() => handleTimerAction("start")}
-                  onPause={() => handleTimerAction("pause")}
-                  onReset={() => handleTimerAction("reset")}
-                  onExtend={() => handleTimerAction("extend")}
-                />
-              </div>
-
               {/* Proposal details */}
-              {selectedItem.type === "proposal" && proposal && (
+              {selectedItem.category === "proposal" && proposal && (
                 <>
                   <div className="bg-gray-900 rounded-lg p-6 border border-gray-800 space-y-4">
                     {proposal.summary && (
@@ -291,20 +217,6 @@ export default function MeetingOwnerPage() {
                         <p className="text-gray-200">{proposal.summary}</p>
                       </div>
                     )}
-                    <div className="grid grid-cols-2 gap-4">
-                      {proposal.pros && (
-                        <div>
-                          <h3 className="text-sm font-semibold text-green-400 uppercase mb-1">Pros</h3>
-                          <p className="text-gray-300 whitespace-pre-wrap">{proposal.pros}</p>
-                        </div>
-                      )}
-                      {proposal.cons && (
-                        <div>
-                          <h3 className="text-sm font-semibold text-red-400 uppercase mb-1">Cons</h3>
-                          <p className="text-gray-300 whitespace-pre-wrap">{proposal.cons}</p>
-                        </div>
-                      )}
-                    </div>
                     {proposal.effective_date && (
                       <div>
                         <h3 className="text-sm font-semibold text-gray-400 uppercase mb-1">Effective Date</h3>
@@ -327,10 +239,10 @@ export default function MeetingOwnerPage() {
                 </>
               )}
 
-              {/* Admin item placeholder */}
-              {selectedItem.type === "admin" && (
+              {/* General item placeholder */}
+              {selectedItem.category !== "proposal" && (
                 <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-                  <p className="text-gray-400 italic">Admin / Discussion Item</p>
+                  <p className="text-gray-400 italic">General / Discussion Item</p>
                 </div>
               )}
             </div>

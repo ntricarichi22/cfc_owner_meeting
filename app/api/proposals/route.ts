@@ -8,25 +8,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const agendaItemId = req.nextUrl.searchParams.get("agendaItemId");
-  if (!agendaItemId) {
-    return NextResponse.json({ error: "agendaItemId query parameter is required" }, { status: 400 });
+  const meetingId = req.nextUrl.searchParams.get("meetingId");
+  if (!meetingId) {
+    return NextResponse.json({ error: "meetingId query parameter is required" }, { status: 400 });
   }
 
   const sb = getSupabaseServer();
   const { data, error } = await sb
     .from("proposals")
     .select("*, proposal_versions(*)")
-    .eq("agenda_item_id", agendaItemId)
-    .maybeSingle();
+    .eq("meeting_id", meetingId);
 
   if (error) {
-    return NextResponse.json({ error: "Failed to fetch proposal" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch proposals" }, { status: 500 });
   }
 
-  if (!data) {
-    return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
-  }
-
-  return NextResponse.json(data);
+  return NextResponse.json(data || []);
 }

@@ -198,11 +198,8 @@ function MeetingsTab() {
     try {
       await createAgendaItem(selectedMeeting.id, {
         title: itemTitle,
-        type: itemType,
-        section_id: itemSection || undefined,
-        voting_required: itemVoting,
-        timer_duration_seconds: parseInt(itemTimer) || 600,
-        sort_order: parseInt(itemOrder) || 0,
+        category: itemType,
+        order_index: parseInt(itemOrder) || 0,
       });
       setItemTitle(""); setItemType("admin"); setItemSection(""); setItemVoting(false); setItemTimer("600"); setItemOrder("0");
       await loadMeetingData(selectedMeeting);
@@ -583,11 +580,8 @@ function ConstitutionTab() {
     if (!editingSec) return;
     try {
       await updateConstitutionSection(editingSec.id, {
-        section_num: editingSec.section_num,
-        section_title: editingSec.section_title,
+        title: editingSec.section_title,
         body: editingSec.body,
-        anchor: editingSec.anchor,
-        sort_order: editingSec.sort_order,
       });
       setEditingSec(null);
       setMsg("Section updated");

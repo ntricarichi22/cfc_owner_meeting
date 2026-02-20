@@ -9,8 +9,7 @@ export async function GET() {
   const sb = getSupabaseServer();
   const { data } = await sb
     .from("meetings")
-    .select("id, club_year, status, meeting_date")
-    .eq("league_id", session.league_id)
-    .order("club_year", { ascending: false });
+    .select("id, year, title, status")
+    .order("year", { ascending: false });
   return NextResponse.json(data || []);
 }

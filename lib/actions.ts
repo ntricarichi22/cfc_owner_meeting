@@ -26,34 +26,6 @@ async function logAuditEvent(params: {
   }
 }
 
-// ─── Owners ───────────────────────────────────────────────
-export async function getOwners() {
-  const session = await getSession();
-  if (!session) return [];
-  const { data } = await sb()
-    .from("owners")
-    .select("*")
-    .eq("league_id", session.league_id)
-    .order("team_name");
-  return data || [];
-}
-
-export async function updateOwner(id: string, fields: { display_name?: string; email?: string; team_name?: string }) {
-  await requireCommissioner();
-  const { error } = await sb().from("owners").update(fields).eq("id", id);
-  if (error) throw new Error(error.message);
-}
-
-export async function createOwner(fields: { display_name: string; email?: string; team_name: string }) {
-  const session = await requireCommissioner();
-  const { error } = await sb().from("owners").insert({
-    ...fields,
-    league_id: session.league_id,
-    role: "owner",
-  });
-  if (error) throw new Error(error.message);
-}
-
 // ─── Meetings ─────────────────────────────────────────────
 export async function getMeetings() {
   const session = await getSession();
@@ -61,8 +33,7 @@ export async function getMeetings() {
   const { data } = await sb()
     .from("meetings")
     .select("*")
-    .eq("league_id", session.league_id)
-    .order("club_year", { ascending: false });
+    .order("year", { ascending: false });
   return data || [];
 }
 
@@ -72,18 +43,16 @@ export async function getMeeting(year: number) {
   const { data } = await sb()
     .from("meetings")
     .select("*")
-    .eq("league_id", session.league_id)
-    .eq("club_year", year)
+    .eq("year", year)
     .single();
   return data;
 }
 
-export async function createMeeting(club_year: number, meeting_date?: string) {
-  const session = await requireCommissioner();
+export async function createMeeting(year: number, title?: string) {
+  await requireCommissioner();
   const { error } = await sb().from("meetings").insert({
-    league_id: session.league_id,
-    club_year,
-    meeting_date: meeting_date || null,
+    year,
+    title: title || `Annual Owners Meeting ${year}`,
     status: "draft",
   });
   if (error) throw new Error(error.message);
@@ -91,57 +60,19 @@ export async function createMeeting(club_year: number, meeting_date?: string) {
 
 export async function updateMeetingStatus(meetingId: string, status: string) {
   await requireCommissioner();
-  const updates: Record<string, unknown> = { status };
-  if (status === "finalized") updates.finalized_at = new Date().toISOString();
-  const { error } = await sb().from("meetings").update(updates).eq("id", meetingId);
+  const { error } = await sb().from("meetings").update({ status }).eq("id", meetingId);
   if (error) throw new Error(error.message);
 }
 
-export async function setCurrentAgendaItem(meetingId: string, itemId: string | null) {
-  const session = await requireCommissioner();
-  const { error } = await sb()
-    .from("meetings")
-    .update({ current_agenda_item_id: itemId })
-    .eq("id", meetingId);
-  if (error) throw new Error(error.message);
-
+export async function setCurrentAgendaItem(meetingId: string, _itemId: string | null) {
+  await requireCommissioner();
+  // current_agenda_item_id does not exist in the MVP schema;
+  // navigation is handled client-side only.
   await logAuditEvent({
     meetingId,
     eventType: "proposal_navigate",
-    payload: { agenda_item_id: itemId, actor: session.team_name },
+    payload: { agenda_item_id: _itemId },
   });
-}
-
-// ─── Agenda Sections ──────────────────────────────────────
-export async function getAgendaSections(meetingId: string) {
-  const { data } = await sb()
-    .from("agenda_sections")
-    .select("*")
-    .eq("meeting_id", meetingId)
-    .order("sort_order");
-  return data || [];
-}
-
-export async function createAgendaSection(meetingId: string, title: string, sortOrder: number) {
-  await requireCommissioner();
-  const { error } = await sb().from("agenda_sections").insert({
-    meeting_id: meetingId,
-    title,
-    sort_order: sortOrder,
-  });
-  if (error) throw new Error(error.message);
-}
-
-export async function updateAgendaSection(id: string, fields: { title?: string; sort_order?: number }) {
-  await requireCommissioner();
-  const { error } = await sb().from("agenda_sections").update(fields).eq("id", id);
-  if (error) throw new Error(error.message);
-}
-
-export async function deleteAgendaSection(id: string) {
-  await requireCommissioner();
-  const { error } = await sb().from("agenda_sections").delete().eq("id", id);
-  if (error) throw new Error(error.message);
 }
 
 // ─── Agenda Items ─────────────────────────────────────────
@@ -150,40 +81,33 @@ export async function getAgendaItems(meetingId: string) {
     .from("agenda_items")
     .select("*, proposals(*)")
     .eq("meeting_id", meetingId)
-    .order("sort_order");
+    .order("order_index");
   return data || [];
 }
 
 export async function createAgendaItem(meetingId: string, fields: {
-  section_id?: string;
-  type: string;
+  category?: string;
   title: string;
-  voting_required?: boolean;
-  timer_duration_seconds?: number;
-  sort_order?: number;
+  order_index?: number;
 }) {
   await requireCommissioner();
   const { data, error } = await sb()
     .from("agenda_items")
     .insert({
       meeting_id: meetingId,
-      section_id: fields.section_id || null,
-      type: fields.type,
+      category: fields.category || "general",
       title: fields.title,
-      voting_required: fields.voting_required ?? (fields.type === "proposal"),
-      timer_duration_seconds: fields.timer_duration_seconds || 600,
-      sort_order: fields.sort_order || 0,
-      status: "not_started",
+      order_index: fields.order_index || 0,
     })
     .select()
     .single();
   if (error) throw new Error(error.message);
 
-  // If proposal type, create proposal + initial version
-  if (fields.type === "proposal" && data) {
+  // If proposal category, create proposal + initial version
+  if (fields.category === "proposal" && data) {
     const { data: proposal, error: pErr } = await sb()
       .from("proposals")
-      .insert({ agenda_item_id: data.id })
+      .insert({ meeting_id: meetingId, agenda_item_id: data.id, title: fields.title })
       .select()
       .single();
     if (pErr) throw new Error(pErr.message);
@@ -192,7 +116,7 @@ export async function createAgendaItem(meetingId: string, fields: {
         proposal_id: proposal.id,
         version_number: 1,
         full_text: "",
-        status: "active",
+        is_active: true,
       });
     }
   }
@@ -221,7 +145,7 @@ export async function getProposal(agendaItemId: string) {
   return data;
 }
 
-export async function updateProposal(id: string, fields: { summary?: string; pros?: string; cons?: string; effective_date?: string }) {
+export async function updateProposal(id: string, fields: { title?: string; summary?: string; effective_date?: string }) {
   await requireCommissioner();
   const { error } = await sb().from("proposals").update(fields).eq("id", id);
   if (error) throw new Error(error.message);
@@ -236,29 +160,29 @@ export async function getProposalVersions(proposalId: string) {
   return data || [];
 }
 
-export async function updateProposalVersion(id: string, fields: { full_text?: string; status?: string }) {
+export async function updateProposalVersion(id: string, fields: { full_text?: string; is_active?: boolean }) {
   await requireCommissioner();
   const { error } = await sb().from("proposal_versions").update(fields).eq("id", id);
   if (error) throw new Error(error.message);
 }
 
 // ─── Amendments ───────────────────────────────────────────
-export async function getAmendments(proposalVersionId: string) {
+export async function getAmendments(proposalId: string) {
   const { data } = await sb()
     .from("amendments")
-    .select("*, submitted_by:owners!amendments_submitted_by_owner_id_fkey(display_name, team_name)")
-    .eq("proposal_version_id", proposalVersionId)
+    .select("*")
+    .eq("proposal_id", proposalId)
     .order("created_at");
   return data || [];
 }
 
-export async function submitAmendment(proposalVersionId: string, suggestedText: string, rationale?: string) {
+export async function submitAmendment(proposalId: string, proposedText: string, rationale?: string) {
   const session = await requireOwner();
   const { error } = await sb().from("amendments").insert({
-    proposal_version_id: proposalVersionId,
-    suggested_text: suggestedText,
+    proposal_id: proposalId,
+    proposed_text: proposedText,
     rationale: rationale || null,
-    submitted_by_owner_id: session.owner_id,
+    submitted_by_team: session.team_name,
     status: "submitted",
   });
   if (error) throw new Error(error.message);
@@ -268,56 +192,67 @@ export async function promoteAmendment(amendmentId: string) {
   await requireCommissioner();
   const { data: amendment } = await sb()
     .from("amendments")
-    .select("*, proposal_version:proposal_versions!amendments_proposal_version_id_fkey(proposal_id, version_number)")
+    .select("*, proposal:proposals!amendments_proposal_id_fkey(id)")
     .eq("id", amendmentId)
     .single();
   if (!amendment) throw new Error("Amendment not found");
 
-  const pv = amendment.proposal_version as unknown as { proposal_id: string; version_number: number };
+  const proposalId = (amendment.proposal as unknown as { id: string }).id;
 
-  // Mark amendment as promoted
-  await sb().from("amendments").update({ status: "promoted" }).eq("id", amendmentId);
+  // Get current max version number
+  const { data: versions } = await sb()
+    .from("proposal_versions")
+    .select("version_number")
+    .eq("proposal_id", proposalId)
+    .order("version_number", { ascending: false })
+    .limit(1);
 
-  // Supersede current active version
+  const nextVersion = (versions?.[0]?.version_number ?? 0) + 1;
+
+  // Mark amendment as accepted
+  await sb().from("amendments").update({ status: "accepted" }).eq("id", amendmentId);
+
+  // Deactivate current active versions
   await sb()
     .from("proposal_versions")
-    .update({ status: "superseded" })
-    .eq("proposal_id", pv.proposal_id)
-    .eq("status", "active");
+    .update({ is_active: false })
+    .eq("proposal_id", proposalId)
+    .eq("is_active", true);
 
   // Create new version
   const session = await getSession();
   const { error } = await sb().from("proposal_versions").insert({
-    proposal_id: pv.proposal_id,
-    version_number: pv.version_number + 1,
-    full_text: amendment.suggested_text,
-    created_by_owner_id: session?.owner_id || null,
-    status: "active",
+    proposal_id: proposalId,
+    version_number: nextVersion,
+    full_text: amendment.proposed_text,
+    created_by_team: session?.team_name || null,
+    is_active: true,
   });
   if (error) throw new Error(error.message);
 }
 
 // ─── Voting ───────────────────────────────────────────────
-export async function openVoting(agendaItemId: string) {
+export async function openVoting(proposalId: string) {
   await requireCommissioner();
   const { error } = await sb()
-    .from("agenda_items")
-    .update({ status: "voting_open" })
-    .eq("id", agendaItemId);
+    .from("proposals")
+    .update({ status: "open" })
+    .eq("id", proposalId);
   if (error) throw new Error(error.message);
 }
 
-export async function castVote(proposalVersionId: string, choice: "yes" | "no") {
+export async function castVote(proposalVersionId: string, vote: "yes" | "no") {
   const session = await requireOwner();
   const { error } = await sb()
     .from("votes")
     .upsert(
       {
         proposal_version_id: proposalVersionId,
-        owner_id: session.owner_id,
-        choice,
+        team_id: session.owner_id,
+        team_name: session.team_name,
+        vote,
       },
-      { onConflict: "proposal_version_id,owner_id" }
+      { onConflict: "proposal_version_id,team_id" }
     );
   if (error) throw new Error(error.message);
 }
@@ -325,7 +260,7 @@ export async function castVote(proposalVersionId: string, choice: "yes" | "no") 
 export async function getVotes(proposalVersionId: string) {
   const { data } = await sb()
     .from("votes")
-    .select("*, owner:owners!votes_owner_id_fkey(display_name, team_name)")
+    .select("*")
     .eq("proposal_version_id", proposalVersionId);
   return data || [];
 }
@@ -335,292 +270,91 @@ export async function getMyVote(proposalVersionId: string) {
   if (!session) return null;
   const { data } = await sb()
     .from("votes")
-    .select("choice")
+    .select("vote")
     .eq("proposal_version_id", proposalVersionId)
-    .eq("owner_id", session.owner_id)
+    .eq("team_id", session.owner_id)
     .single();
-  return data?.choice || null;
+  return data?.vote || null;
 }
 
-export async function tallyVotes(agendaItemId: string) {
+export async function tallyVotes(proposalId: string) {
   await requireCommissioner();
-
-  // Get the active proposal version
-  const { data: proposal } = await sb()
-    .from("proposals")
-    .select("id")
-    .eq("agenda_item_id", agendaItemId)
-    .single();
-  if (!proposal) throw new Error("No proposal found");
 
   const { data: activeVersion } = await sb()
     .from("proposal_versions")
     .select("id")
-    .eq("proposal_id", proposal.id)
-    .eq("status", "active")
+    .eq("proposal_id", proposalId)
+    .eq("is_active", true)
     .single();
   if (!activeVersion) throw new Error("No active version");
 
   const { data: votes } = await sb()
     .from("votes")
-    .select("choice, owner_id")
+    .select("vote, team_id")
     .eq("proposal_version_id", activeVersion.id);
 
   if (!votes || votes.length < TOTAL_OWNERS) {
-    // Find who hasn't voted
-    const session = await getSession();
-    const { data: allOwners } = await sb()
-      .from("owners")
-      .select("id, team_name")
-      .eq("league_id", session!.league_id);
-    const votedIds = new Set((votes || []).map((v) => v.owner_id));
-    const missing = (allOwners || []).filter((o) => !votedIds.has(o.id)).map((o) => o.team_name);
-    throw new Error(`All ${TOTAL_OWNERS} owners must vote before tallying. Missing: ${missing.join(", ")}`);
+    const votedIds = new Set((votes || []).map((v) => v.team_id));
+    throw new Error(`All ${TOTAL_OWNERS} owners must vote before tallying. ${votedIds.size} votes received so far.`);
   }
 
-  const yesCount = votes.filter((v) => v.choice === "yes").length;
+  const yesCount = votes.filter((v) => v.vote === "yes").length;
   const passed = yesCount >= VOTE_THRESHOLD;
 
-  // Mark version as final if passed
-  if (passed) {
-    await sb()
-      .from("proposal_versions")
-      .update({ status: "final" })
-      .eq("id", activeVersion.id);
-  }
-
-  // Update agenda item status
+  // Update proposal status
   await sb()
-    .from("agenda_items")
-    .update({ status: "tallied" })
-    .eq("id", agendaItemId);
+    .from("proposals")
+    .update({ status: passed ? "passed" : "failed" })
+    .eq("id", proposalId);
 
   return { yesCount, noCount: votes.length - yesCount, passed };
 }
 
-// ─── Timer ────────────────────────────────────────────────
-export async function startTimer(agendaItemId: string) {
-  const session = await requireCommissioner();
-  const { data: item } = await sb()
-    .from("agenda_items")
-    .select("timer_duration_seconds, timer_remaining_seconds, meeting_id")
-    .eq("id", agendaItemId)
-    .single();
-  if (!item) throw new Error("Item not found");
-
-  const remaining = item.timer_remaining_seconds ?? item.timer_duration_seconds ?? 600;
-  await sb()
-    .from("agenda_items")
-    .update({
-      timer_started_at: new Date().toISOString(),
-      timer_paused_at: null,
-      timer_remaining_seconds: remaining,
-      status: "in_discussion",
-    })
-    .eq("id", agendaItemId);
-
-  await logAuditEvent({
-    meetingId: item.meeting_id,
-    eventType: "timer_start",
-    payload: { agenda_item_id: agendaItemId, remaining_seconds: remaining, actor: session.team_name },
-  });
-}
-
-export async function pauseTimer(agendaItemId: string) {
-  const session = await requireCommissioner();
-  const { data: item } = await sb()
-    .from("agenda_items")
-    .select("timer_started_at, timer_remaining_seconds, meeting_id")
-    .eq("id", agendaItemId)
-    .single();
-  if (!item || !item.timer_started_at) return;
-
-  const elapsed = Math.floor((Date.now() - new Date(item.timer_started_at).getTime()) / 1000);
-  const remaining = Math.max(0, (item.timer_remaining_seconds || 600) - elapsed);
-
-  await sb()
-    .from("agenda_items")
-    .update({
-      timer_paused_at: new Date().toISOString(),
-      timer_started_at: null,
-      timer_remaining_seconds: remaining,
-    })
-    .eq("id", agendaItemId);
-
-  await logAuditEvent({
-    meetingId: item.meeting_id,
-    eventType: "timer_pause",
-    payload: { agenda_item_id: agendaItemId, remaining_seconds: remaining, actor: session.team_name },
-  });
-}
-
-export async function resetTimer(agendaItemId: string) {
-  const session = await requireCommissioner();
-  const { data: item } = await sb()
-    .from("agenda_items")
-    .select("timer_duration_seconds, meeting_id")
-    .eq("id", agendaItemId)
-    .single();
-  if (!item) throw new Error("Item not found");
-
-  await sb()
-    .from("agenda_items")
-    .update({
-      timer_started_at: null,
-      timer_paused_at: null,
-      timer_remaining_seconds: item.timer_duration_seconds || 600,
-    })
-    .eq("id", agendaItemId);
-
-  await logAuditEvent({
-    meetingId: item.meeting_id,
-    eventType: "timer_reset",
-    payload: { agenda_item_id: agendaItemId, actor: session.team_name },
-  });
-}
-
-export async function extendTimer(agendaItemId: string, additionalSeconds: number = 600) {
+// ─── Timer (no-ops: timer columns do not exist in MVP schema) ──
+export async function startTimer(_agendaItemId: string) {
   await requireCommissioner();
-  const { data: item } = await sb()
-    .from("agenda_items")
-    .select("timer_remaining_seconds, timer_duration_seconds")
-    .eq("id", agendaItemId)
-    .single();
+}
 
-  const current = item?.timer_remaining_seconds ?? item?.timer_duration_seconds ?? 600;
-  await sb()
-    .from("agenda_items")
-    .update({
-      timer_remaining_seconds: current + additionalSeconds,
-      timer_duration_seconds: (item?.timer_duration_seconds || 600) + additionalSeconds,
-    })
-    .eq("id", agendaItemId);
+export async function pauseTimer(_agendaItemId: string) {
+  await requireCommissioner();
+}
+
+export async function resetTimer(_agendaItemId: string) {
+  await requireCommissioner();
+}
+
+export async function extendTimer(_agendaItemId: string, _additionalSeconds: number = 600) {
+  await requireCommissioner();
 }
 
 // ─── Constitution ─────────────────────────────────────────
-export async function getConstitutionArticles(year?: number) {
-  const session = await getSession();
-  if (!session) return [];
-  let query = sb()
-    .from("constitution_articles")
-    .select("*, constitution_sections(*)")
-    .eq("league_id", session.league_id)
-    .order("sort_order");
-  if (year) query = query.eq("club_year", year);
-  const { data } = await query;
+export async function getConstitutionSections() {
+  const { data } = await sb()
+    .from("constitution_sections")
+    .select("*")
+    .order("section_key");
   return data || [];
 }
 
-export async function getConstitutionSectionByAnchor(anchor: string) {
-  const session = await getSession();
-  if (!session) return null;
+export async function getConstitutionSectionByKey(sectionKey: string) {
   const { data } = await sb()
     .from("constitution_sections")
-    .select("*, article:constitution_articles!constitution_sections_article_id_fkey(*)")
-    .eq("anchor", anchor)
+    .select("*")
+    .eq("section_key", sectionKey)
     .single();
   return data;
 }
 
-export async function createConstitutionArticle(fields: {
-  club_year: number;
-  article_num: string;
-  article_title: string;
-  sort_order?: number;
-}) {
-  const session = await requireCommissioner();
-  const { error } = await sb().from("constitution_articles").insert({
-    league_id: session.league_id,
-    ...fields,
-    sort_order: fields.sort_order || 0,
-  });
-  if (error) throw new Error(error.message);
-}
-
-export async function updateConstitutionArticle(id: string, fields: {
-  article_num?: string;
-  article_title?: string;
-  sort_order?: number;
-}) {
-  await requireCommissioner();
-  const { error } = await sb().from("constitution_articles").update(fields).eq("id", id);
-  if (error) throw new Error(error.message);
-}
-
-export async function deleteConstitutionArticle(id: string) {
-  await requireCommissioner();
-  const { error } = await sb().from("constitution_articles").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-}
-
-export async function createConstitutionSection(fields: {
-  article_id: string;
-  section_num: string;
-  section_title: string;
-  body: string;
-  anchor: string;
-  sort_order?: number;
-}) {
-  await requireCommissioner();
-  const { error } = await sb().from("constitution_sections").insert({
-    ...fields,
-    sort_order: fields.sort_order || 0,
-  });
-  if (error) throw new Error(error.message);
-}
-
 export async function updateConstitutionSection(id: string, fields: {
-  section_num?: string;
-  section_title?: string;
+  title?: string;
   body?: string;
-  anchor?: string;
-  sort_order?: number;
 }) {
   await requireCommissioner();
   const { error } = await sb().from("constitution_sections").update(fields).eq("id", id);
   if (error) throw new Error(error.message);
 }
 
-export async function deleteConstitutionSection(id: string) {
-  await requireCommissioner();
-  const { error } = await sb().from("constitution_sections").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-}
-
-// ─── Proposal Constitution Links ─────────────────────────
-export async function getProposalConstitutionLinks(proposalId: string) {
-  const { data } = await sb()
-    .from("proposal_constitution_links")
-    .select("*, section:constitution_sections!proposal_constitution_links_constitution_section_id_fkey(id, anchor, section_title, section_num, article:constitution_articles!constitution_sections_article_id_fkey(article_num, article_title))")
-    .eq("proposal_id", proposalId);
-  return data || [];
-}
-
-export async function addProposalConstitutionLink(proposalId: string, sectionId: string) {
-  await requireCommissioner();
-  const { error } = await sb().from("proposal_constitution_links").insert({
-    proposal_id: proposalId,
-    constitution_section_id: sectionId,
-  });
-  if (error) throw new Error(error.message);
-}
-
-export async function removeProposalConstitutionLink(id: string) {
-  await requireCommissioner();
-  const { error } = await sb().from("proposal_constitution_links").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-}
-
-// ─── Meeting Minutes ──────────────────────────────────────
-export async function getMeetingMinutes(meetingId: string) {
-  const { data } = await sb()
-    .from("meeting_minutes")
-    .select("*")
-    .eq("meeting_id", meetingId)
-    .single();
-  return data;
-}
-
+// ─── Meeting Recap ────────────────────────────────────────
 export async function generateMeetingRecap(meetingId: string) {
   await requireCommissioner();
   const supabase = sb();
@@ -632,77 +366,82 @@ export async function generateMeetingRecap(meetingId: string) {
     .from("agenda_items")
     .select("*, proposals(*, proposal_versions(*, votes:votes(*)))")
     .eq("meeting_id", meetingId)
-    .order("sort_order");
+    .order("order_index");
 
-  const { data: owners } = await supabase.from("owners").select("*").eq("league_id", meeting.league_id);
-  const ownerMap = new Map((owners || []).map((o) => [o.id, o]));
-
-  let md = `# Owners Meeting ${meeting.club_year}\n\n`;
-  md += `**Date:** ${meeting.meeting_date || "TBD"}\n\n`;
+  let md = `# ${meeting.title}\n\n`;
+  md += `**Year:** ${meeting.year}\n\n`;
   md += `---\n\n`;
 
-  let html = `<h1>Owners Meeting ${meeting.club_year}</h1>`;
-  html += `<p><strong>Date:</strong> ${meeting.meeting_date || "TBD"}</p><hr>`;
+  let html = `<h1>${meeting.title}</h1>`;
+  html += `<p><strong>Year:</strong> ${meeting.year}</p><hr>`;
 
   for (const item of items || []) {
     md += `## ${item.title}\n\n`;
     html += `<h2>${item.title}</h2>`;
 
-    if (item.type === "admin") {
-      md += `*Admin/Discussion Item*\n\n`;
-      html += `<p><em>Admin/Discussion Item</em></p>`;
+    if (item.category !== "proposal") {
+      md += `*General Item*\n\n`;
+      html += `<p><em>General Item</em></p>`;
       continue;
     }
 
-    const proposal = item.proposals;
-    if (!proposal) continue;
+    const proposals = item.proposals || [];
+    for (const proposal of Array.isArray(proposals) ? proposals : [proposals]) {
+      if (!proposal) continue;
 
-    if (proposal.summary) {
-      md += `**Summary:** ${proposal.summary}\n\n`;
-      html += `<p><strong>Summary:</strong> ${proposal.summary}</p>`;
-    }
-    if (proposal.effective_date) {
-      md += `**Effective Date:** ${proposal.effective_date}\n\n`;
-      html += `<p><strong>Effective Date:</strong> ${proposal.effective_date}</p>`;
-    }
+      if (proposal.summary) {
+        md += `**Summary:** ${proposal.summary}\n\n`;
+        html += `<p><strong>Summary:</strong> ${proposal.summary}</p>`;
+      }
+      if (proposal.effective_date) {
+        md += `**Effective Date:** ${proposal.effective_date}\n\n`;
+        html += `<p><strong>Effective Date:</strong> ${proposal.effective_date}</p>`;
+      }
 
-    const versions = proposal.proposal_versions || [];
-    const finalVersion = versions.find((v: { status: string }) => v.status === "final") ||
-      versions.find((v: { status: string }) => v.status === "active") ||
-      versions[versions.length - 1];
+      const versions = proposal.proposal_versions || [];
+      const activeVersion = versions.find((v: { is_active: boolean }) => v.is_active) ||
+        versions[versions.length - 1];
 
-    if (finalVersion) {
-      md += `**Final Text (v${finalVersion.version_number}):**\n\n${finalVersion.full_text}\n\n`;
-      html += `<p><strong>Final Text (v${finalVersion.version_number}):</strong></p><pre>${finalVersion.full_text}</pre>`;
+      if (activeVersion) {
+        md += `**Text (v${activeVersion.version_number}):**\n\n${activeVersion.full_text}\n\n`;
+        html += `<p><strong>Text (v${activeVersion.version_number}):</strong></p><pre>${activeVersion.full_text}</pre>`;
 
-      const votes = finalVersion.votes || [];
-      const yesVotes = votes.filter((v: { choice: string }) => v.choice === "yes");
-      const noVotes = votes.filter((v: { choice: string }) => v.choice === "no");
-      const passed = yesVotes.length >= VOTE_THRESHOLD;
+        const votes = activeVersion.votes || [];
+        const yesVotes = votes.filter((v: { vote: string }) => v.vote === "yes");
+        const noVotes = votes.filter((v: { vote: string }) => v.vote === "no");
+        const passed = yesVotes.length >= VOTE_THRESHOLD;
 
-      md += `**Result:** ${passed ? "✅ PASSED" : "❌ FAILED"} (${yesVotes.length} Yes / ${noVotes.length} No)\n\n`;
-      html += `<p><strong>Result:</strong> ${passed ? "✅ PASSED" : "❌ FAILED"} (${yesVotes.length} Yes / ${noVotes.length} No)</p>`;
-
-      md += `**Yes:** ${yesVotes.map((v: { owner_id: string }) => ownerMap.get(v.owner_id)?.team_name || "Unknown").join(", ")}\n\n`;
-      md += `**No:** ${noVotes.map((v: { owner_id: string }) => ownerMap.get(v.owner_id)?.team_name || "Unknown").join(", ")}\n\n`;
-      html += `<p><strong>Yes:</strong> ${yesVotes.map((v: { owner_id: string }) => ownerMap.get(v.owner_id)?.team_name || "Unknown").join(", ")}</p>`;
-      html += `<p><strong>No:</strong> ${noVotes.map((v: { owner_id: string }) => ownerMap.get(v.owner_id)?.team_name || "Unknown").join(", ")}</p>`;
+        if (votes.length > 0) {
+          md += `**Result:** ${passed ? "✅ PASSED" : "❌ FAILED"} (${yesVotes.length} Yes / ${noVotes.length} No)\n\n`;
+          html += `<p><strong>Result:</strong> ${passed ? "✅ PASSED" : "❌ FAILED"} (${yesVotes.length} Yes / ${noVotes.length} No)</p>`;
+        }
+      }
     }
     md += `---\n\n`;
     html += `<hr>`;
   }
 
-  const subject = `Owners Meeting Recap - ${meeting.club_year}`;
-
-  await supabase.from("meeting_minutes").upsert(
-    {
-      meeting_id: meetingId,
-      minutes_markdown: md,
-      email_subject: subject,
-      email_body_html: html,
-    },
-    { onConflict: "meeting_id" }
-  );
-
+  const subject = `Owners Meeting Recap - ${meeting.year}`;
   return { markdown: md, html, subject };
 }
+
+// ─── Legacy stubs (tables removed from MVP schema) ────────
+export async function getOwners() { return []; }
+export async function updateOwner(_id: string, _fields: Record<string, unknown>) {}
+export async function createOwner(_fields: Record<string, unknown>) {}
+export async function getAgendaSections(_meetingId: string) { return []; }
+export async function createAgendaSection(_meetingId: string, _title: string, _sortOrder: number) {}
+export async function updateAgendaSection(_id: string, _fields: Record<string, unknown>) {}
+export async function deleteAgendaSection(_id: string) {}
+export async function getConstitutionArticles(_year?: number) { return []; }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getConstitutionSectionByAnchor(_anchor: string): Promise<any> { return null; }
+export async function createConstitutionArticle(_fields: Record<string, unknown>) {}
+export async function updateConstitutionArticle(_id: string, _fields: Record<string, unknown>) {}
+export async function deleteConstitutionArticle(_id: string) {}
+export async function createConstitutionSection(_fields: Record<string, unknown>) {}
+export async function deleteConstitutionSection(_id: string) {}
+export async function getProposalConstitutionLinks(_proposalId: string) { return []; }
+export async function addProposalConstitutionLink(_proposalId: string, _sectionId: string) {}
+export async function removeProposalConstitutionLink(_id: string) {}
+export async function getMeetingMinutes(_meetingId: string): Promise<{ minutes_markdown: string; email_body_html: string | null; email_subject: string | null; emailed_at: string | null } | null> { return null; }

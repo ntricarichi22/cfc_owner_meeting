@@ -3,14 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Nav from "@/components/Nav";
-import Timer from "@/components/Timer";
 import { useSession } from "@/components/TeamSelector";
-import {
-  startTimer,
-  pauseTimer,
-  resetTimer,
-  extendTimer,
-} from "@/lib/actions";
 import type {
   Meeting,
   AgendaItem,
@@ -24,13 +17,17 @@ export default function PresenterPage() {
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [items, setItems] = useState<AgendaItem[]>([]);
-  const [proposal, setProposal] = useState<Proposal | null>(null);
-  const [activeVersion, setActiveVersion] = useState<ProposalVersion | null>(null);
+  const [proposals, setProposals] = useState<(Proposal & { proposal_versions?: ProposalVersion[] })[]>([]);
   const [meetingNotFound, setMeetingNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const currentItem = items.find((i) => i.id === meeting?.current_agenda_item_id) ?? null;
-  const currentIdx = items.findIndex((i) => i.id === meeting?.current_agenda_item_id);
+  // Default to first item since current_agenda_item_id doesn't exist in MVP schema
+  const currentItem = items[0] ?? null;
+  const currentIdx = 0;
+
+  // Find proposal for the current item
+  const proposal = currentItem ? (proposals.find((p) => p.agenda_item_id === currentItem.id) ?? null) : null;
+  const activeVersion = proposal?.proposal_versions?.find((v) => v.is_active) ?? null;
 
   // Redirect if no session
   useEffect(() => {
@@ -56,40 +53,15 @@ export default function PresenterPage() {
       if (itemsRes.ok) {
         setItems(await itemsRes.json());
       }
+
+      const proposalsRes = await fetch(`/api/proposals?meetingId=${m.id}`);
+      if (proposalsRes.ok) {
+        setProposals(await proposalsRes.json());
+      }
     } catch {
       // ignore polling errors
     }
   }, []);
-
-  // Load proposal for current item
-  const loadProposal = useCallback(async () => {
-    if (!currentItem || currentItem.type !== "proposal") {
-      setProposal(null);
-      setActiveVersion(null);
-      return;
-    }
-    try {
-      const res = await fetch(`/api/proposals?agendaItemId=${currentItem.id}`);
-      if (!res.ok) {
-        setProposal(null);
-        setActiveVersion(null);
-        return;
-      }
-      const p = await res.json();
-      setProposal(p);
-
-      if (p?.id) {
-        const vRes = await fetch(`/api/proposals/active-version?proposalId=${p.id}`);
-        if (vRes.ok) {
-          setActiveVersion(await vRes.json());
-        } else {
-          setActiveVersion(null);
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, [currentItem]);
 
   useEffect(() => {
     if (!session) return;
@@ -97,23 +69,6 @@ export default function PresenterPage() {
     const interval = setInterval(loadMeeting, 3000);
     return () => clearInterval(interval);
   }, [session, loadMeeting]);
-
-  useEffect(() => {
-    loadProposal();
-  }, [loadProposal]);
-
-  const handleTimerAction = async (action: "start" | "pause" | "reset" | "extend") => {
-    if (!currentItem) return;
-    try {
-      if (action === "start") await startTimer(currentItem.id);
-      else if (action === "pause") await pauseTimer(currentItem.id);
-      else if (action === "reset") await resetTimer(currentItem.id);
-      else if (action === "extend") await extendTimer(currentItem.id);
-      await loadMeeting();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Timer action failed");
-    }
-  };
 
   if (sessionLoading) {
     return (
@@ -162,7 +117,7 @@ export default function PresenterPage() {
       {/* Presenter header */}
       <div className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Owners Meeting {meeting.club_year}</h1>
+          <h1 className="text-2xl font-bold">{meeting.title}</h1>
           <p className="text-sm text-gray-400">
             Presenter View • Item {currentIdx + 1} of {items.length}
           </p>
@@ -181,28 +136,12 @@ export default function PresenterPage() {
             <div className="text-center">
               <h2 className="text-4xl font-bold">{currentItem.title}</h2>
               <p className="text-lg text-gray-400 mt-2">
-                {currentItem.type === "proposal" ? "📋 Proposal" : "📌 Admin Item"}
+                {currentItem.category === "proposal" ? "📋 Proposal" : "📌 General Item"}
               </p>
             </div>
 
-            {/* Timer - centered, large */}
-            <div className="flex justify-center">
-              <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 inline-block">
-                <Timer
-                  durationSeconds={currentItem.timer_duration_seconds || 600}
-                  startedAt={currentItem.timer_started_at}
-                  remainingSeconds={currentItem.timer_remaining_seconds}
-                  isCommissioner={isCommissioner}
-                  onStart={() => handleTimerAction("start")}
-                  onPause={() => handleTimerAction("pause")}
-                  onReset={() => handleTimerAction("reset")}
-                  onExtend={() => handleTimerAction("extend")}
-                />
-              </div>
-            </div>
-
             {/* Proposal details */}
-            {currentItem.type === "proposal" && proposal && (
+            {currentItem.category === "proposal" && proposal && (
               <>
                 {proposal.summary && (
                   <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
@@ -210,21 +149,6 @@ export default function PresenterPage() {
                     <p className="text-lg text-gray-200">{proposal.summary}</p>
                   </div>
                 )}
-
-                <div className="grid grid-cols-2 gap-6">
-                  {proposal.pros && (
-                    <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-                      <h3 className="text-sm font-semibold text-green-400 uppercase mb-2">Pros</h3>
-                      <p className="text-gray-300 whitespace-pre-wrap">{proposal.pros}</p>
-                    </div>
-                  )}
-                  {proposal.cons && (
-                    <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-                      <h3 className="text-sm font-semibold text-red-400 uppercase mb-2">Cons</h3>
-                      <p className="text-gray-300 whitespace-pre-wrap">{proposal.cons}</p>
-                    </div>
-                  )}
-                </div>
 
                 {activeVersion && (
                   <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
@@ -246,9 +170,9 @@ export default function PresenterPage() {
               </>
             )}
 
-            {currentItem.type === "admin" && (
+            {currentItem.category !== "proposal" && (
               <div className="bg-gray-900 rounded-lg p-8 border border-gray-800 text-center">
-                <p className="text-xl text-gray-400 italic">Admin / Discussion Item</p>
+                <p className="text-xl text-gray-400 italic">General / Discussion Item</p>
               </div>
             )}
           </div>
