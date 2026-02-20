@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     .from("agenda_items")
     .select("*, proposals(*)")
     .eq("meeting_id", meetingId)
-    .order("sort_order");
+    .order("order_index");
 
   if (error) {
     return NextResponse.json({ error: "Failed to fetch agenda items" }, { status: 500 });

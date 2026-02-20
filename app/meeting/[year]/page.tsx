@@ -427,8 +427,8 @@ export default function MeetingPage({
               {/* Current item header */}
               <div className="flex items-start justify-between">
                 <div>
-                  <span className={`text-xs px-2 py-0.5 rounded font-semibold ${STATUS_COLORS[currentItem.status]}`}>
-                    {currentItem.status.replace(/_/g, " ").toUpperCase()}
+                  <span className={`text-xs px-2 py-0.5 rounded font-semibold ${STATUS_COLORS[currentItem.status ?? "not_started"]}`}>
+                    {(currentItem.status ?? "not_started").replace(/_/g, " ").toUpperCase()}
                   </span>
                   <h2 className="text-3xl font-bold mt-2">{currentItem.title}</h2>
                   <p className="text-sm text-gray-400 mt-1">
@@ -441,8 +441,8 @@ export default function MeetingPage({
               <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
                 <Timer
                   durationSeconds={currentItem.timer_duration_seconds || 600}
-                  startedAt={currentItem.timer_started_at}
-                  remainingSeconds={currentItem.timer_remaining_seconds}
+                  startedAt={currentItem.timer_started_at ?? null}
+                  remainingSeconds={currentItem.timer_remaining_seconds ?? null}
                   isCommissioner={isCommissioner}
                   onStart={() => startTimer(currentItem.id).then(loadMeetingData)}
                   onPause={() => pauseTimer(currentItem.id).then(loadMeetingData)}
@@ -729,8 +729,8 @@ function AgendaListItem({
       </div>
       <div className="flex items-center gap-1 mt-0.5 ml-4">
         <span className="text-[10px] text-gray-500">{item.type === "proposal" ? "📋" : "📌"}</span>
-        <span className={`text-[10px] px-1.5 py-0.5 rounded ${STATUS_COLORS[item.status]}`}>
-          {item.status.replace(/_/g, " ")}
+        <span className={`text-[10px] px-1.5 py-0.5 rounded ${STATUS_COLORS[item.status ?? "not_started"]}`}>
+          {(item.status ?? "not_started").replace(/_/g, " ")}
         </span>
       </div>
     </button>
