@@ -59,7 +59,7 @@ export default function Home() {
   const handleSubmit = async () => {
     try {
       setError("");
-      if (!selectedTeamId || teams.length === 0) {
+      if (!selectedTeamId) {
         setError("Team not found");
         return;
       }
@@ -101,7 +101,7 @@ export default function Home() {
               <>
                 <select
                   className="bg-black border border-gray-700 p-3 rounded-lg text-white w-64"
-                  defaultValue=""
+                  value={selectedTeamId}
                   onChange={(e) => {
                     setSelectedTeamId(e.target.value);
                   }}
