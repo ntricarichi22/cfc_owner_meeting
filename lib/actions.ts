@@ -6,6 +6,26 @@ import { VOTE_THRESHOLD, TOTAL_OWNERS } from "@/lib/types";
 
 const sb = () => getSupabaseServer();
 
+// ─── Audit Events ─────────────────────────────────────────
+async function logAuditEvent(params: {
+  meetingId: string;
+  proposalId?: string | null;
+  eventType: string;
+  payload?: Record<string, unknown>;
+}) {
+  try {
+    await sb().from("audit_events").insert({
+      meeting_id: params.meetingId,
+      proposal_id: params.proposalId || null,
+      event_type: params.eventType,
+      payload_json: params.payload || {},
+      created_at: new Date().toISOString(),
+    });
+  } catch {
+    // Silently ignore audit failures to avoid breaking primary operations
+  }
+}
+
 // ─── Owners ───────────────────────────────────────────────
 export async function getOwners() {
   const session = await getSession();
@@ -78,12 +98,18 @@ export async function updateMeetingStatus(meetingId: string, status: string) {
 }
 
 export async function setCurrentAgendaItem(meetingId: string, itemId: string | null) {
-  await requireCommissioner();
+  const session = await requireCommissioner();
   const { error } = await sb()
     .from("meetings")
     .update({ current_agenda_item_id: itemId })
     .eq("id", meetingId);
   if (error) throw new Error(error.message);
+
+  await logAuditEvent({
+    meetingId,
+    eventType: "proposal_navigate",
+    payload: { agenda_item_id: itemId, actor: session.team_name },
+  });
 }
 
 // ─── Agenda Sections ──────────────────────────────────────
@@ -374,10 +400,10 @@ export async function tallyVotes(agendaItemId: string) {
 
 // ─── Timer ────────────────────────────────────────────────
 export async function startTimer(agendaItemId: string) {
-  await requireCommissioner();
+  const session = await requireCommissioner();
   const { data: item } = await sb()
     .from("agenda_items")
-    .select("timer_duration_seconds, timer_remaining_seconds")
+    .select("timer_duration_seconds, timer_remaining_seconds, meeting_id")
     .eq("id", agendaItemId)
     .single();
   if (!item) throw new Error("Item not found");
@@ -392,13 +418,19 @@ export async function startTimer(agendaItemId: string) {
       status: "in_discussion",
     })
     .eq("id", agendaItemId);
+
+  await logAuditEvent({
+    meetingId: item.meeting_id,
+    eventType: "timer_start",
+    payload: { agenda_item_id: agendaItemId, remaining_seconds: remaining, actor: session.team_name },
+  });
 }
 
 export async function pauseTimer(agendaItemId: string) {
-  await requireCommissioner();
+  const session = await requireCommissioner();
   const { data: item } = await sb()
     .from("agenda_items")
-    .select("timer_started_at, timer_remaining_seconds")
+    .select("timer_started_at, timer_remaining_seconds, meeting_id")
     .eq("id", agendaItemId)
     .single();
   if (!item || !item.timer_started_at) return;
@@ -414,24 +446,37 @@ export async function pauseTimer(agendaItemId: string) {
       timer_remaining_seconds: remaining,
     })
     .eq("id", agendaItemId);
+
+  await logAuditEvent({
+    meetingId: item.meeting_id,
+    eventType: "timer_pause",
+    payload: { agenda_item_id: agendaItemId, remaining_seconds: remaining, actor: session.team_name },
+  });
 }
 
 export async function resetTimer(agendaItemId: string) {
-  await requireCommissioner();
+  const session = await requireCommissioner();
   const { data: item } = await sb()
     .from("agenda_items")
-    .select("timer_duration_seconds")
+    .select("timer_duration_seconds, meeting_id")
     .eq("id", agendaItemId)
     .single();
+  if (!item) throw new Error("Item not found");
 
   await sb()
     .from("agenda_items")
     .update({
       timer_started_at: null,
       timer_paused_at: null,
-      timer_remaining_seconds: item?.timer_duration_seconds || 600,
+      timer_remaining_seconds: item.timer_duration_seconds || 600,
     })
     .eq("id", agendaItemId);
+
+  await logAuditEvent({
+    meetingId: item.meeting_id,
+    eventType: "timer_reset",
+    payload: { agenda_item_id: agendaItemId, actor: session.team_name },
+  });
 }
 
 export async function extendTimer(agendaItemId: string, additionalSeconds: number = 600) {
