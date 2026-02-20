@@ -181,7 +181,7 @@ create index if not exists idx_votes_version on votes(proposal_version_id);
 create index if not exists idx_votes_owner on votes(owner_id);
 create index if not exists idx_constitution_articles_league on constitution_articles(league_id);
 create index if not exists idx_constitution_sections_article on constitution_sections(article_id);
-create index if not exists idx_team_sessions_team on team_sessions(team_id);
+create index if not exists idx_team_sessions_team on team_sessions(team_id, created_at);
 
 -- ============================================================
 -- REALTIME (enable for live meeting sync)

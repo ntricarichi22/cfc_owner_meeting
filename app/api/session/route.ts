@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { setSessionCookie, clearSession } from "@/lib/session";
 
+const SESSION_CLAIM_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 export async function POST(req: NextRequest) {
   const { teamId, teamName } = await req.json();
   if (!teamId || !teamName) {
@@ -14,7 +16,7 @@ export async function POST(req: NextRequest) {
   const sb = getSupabaseServer();
 
   // Check if this team is already claimed in the last 24 hours
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const cutoff = new Date(Date.now() - SESSION_CLAIM_TIMEOUT_MS).toISOString();
   const { data: existing, error: checkError } = await sb
     .from("team_sessions")
     .select("id")
