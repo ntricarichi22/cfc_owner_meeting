@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
 import VotingPanel from "@/components/VotingPanel";
@@ -46,11 +46,11 @@ function constitutionAnchorId(sectionKey: string) {
 
 export default function MeetingOwnerPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { session, loading: sessionLoading, isCommissioner, logout } = useSession();
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [items, setItems] = useState<AgendaItem[]>([]);
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [proposals, setProposals] = useState<(Proposal & { proposal_versions?: ProposalVersion[] })[]>([]);
   const [amendments, setAmendments] = useState<Amendment[]>([]);
   const [constitutionSections, setConstitutionSections] = useState<ConstitutionSection[]>([]);
@@ -64,25 +64,36 @@ export default function MeetingOwnerPage() {
   const [amendmentSuccess, setAmendmentSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [meetingNotFound, setMeetingNotFound] = useState(false);
+  const [showVotingModal, setShowVotingModal] = useState(false);
+
   const canSubmitAmendment = session?.team_name === COMMISSIONER_TEAM_NAME;
-
-  const selectedItem = items.find((i) => i.id === selectedItemId) ?? null;
-  const selectedIdx = items.findIndex((i) => i.id === selectedItemId);
-
-  // Find proposal for the selected agenda item
-  const proposal = proposals.find((p) => p.agenda_item_id === selectedItemId) ?? null;
+  const slideCount = items.length + 1;
+  const slideParam = Number(searchParams.get("slide") ?? "0");
+  const parsedSlide = Number.isFinite(slideParam) && slideParam >= 0 ? Math.floor(slideParam) : 0;
+  const currentSlide = Math.min(parsedSlide, Math.max(0, slideCount - 1));
+  const currentItem = currentSlide > 0 ? items[currentSlide - 1] : null;
+  const proposal = proposals.find((p) => p.agenda_item_id === currentItem?.id) ?? null;
   const activeVersion = proposal?.proposal_versions?.find((v) => v.is_active) ?? null;
   const summaryText = summaryWithoutConstitutionLinks(proposal?.summary);
   const constitutionLinks = parseConstitutionLinks(proposal?.summary);
+  const previousVoteStatusRef = useRef<string | null>(null);
 
-  // Redirect if no session
+  const changeSlide = useCallback((nextSlide: number) => {
+    router.replace(`/meeting?slide=${nextSlide}`, { scroll: false });
+  }, [router]);
+
+  useEffect(() => {
+    if (!searchParams.get("slide") || parsedSlide !== currentSlide) {
+      changeSlide(currentSlide);
+    }
+  }, [searchParams, parsedSlide, currentSlide, changeSlide]);
+
   useEffect(() => {
     if (!sessionLoading && !session) {
       router.replace("/");
     }
   }, [session, sessionLoading, router]);
 
-  // Fetch live meeting
   const loadMeeting = useCallback(async () => {
     try {
       const res = await fetch("/api/meetings/current");
@@ -95,21 +106,16 @@ export default function MeetingOwnerPage() {
       setMeeting(m);
       setMeetingNotFound(false);
 
-      // Load agenda items
-      const itemsRes = await fetch(`/api/agenda-items?meetingId=${m.id}`);
+      const [itemsRes, proposalsRes] = await Promise.all([
+        fetch(`/api/agenda-items?meetingId=${m.id}`),
+        fetch(`/api/proposals?meetingId=${m.id}`),
+      ]);
+
       if (itemsRes.ok) {
         const agendaItems: AgendaItem[] = await itemsRes.json();
         setItems(agendaItems);
-
-        // Default selection: first item
-        setSelectedItemId((prev) => {
-          if (prev && agendaItems.some((i) => i.id === prev)) return prev;
-          return agendaItems[0]?.id ?? null;
-        });
       }
 
-      // Load proposals
-      const proposalsRes = await fetch(`/api/proposals?meetingId=${m.id}`);
       if (proposalsRes.ok) {
         setProposals(await proposalsRes.json());
       }
@@ -118,7 +124,6 @@ export default function MeetingOwnerPage() {
     }
   }, []);
 
-  // Poll meeting data
   useEffect(() => {
     if (!session) return;
     loadMeeting();
@@ -136,18 +141,6 @@ export default function MeetingOwnerPage() {
       .then((data) => setConstitutionSections(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, [session]);
-
-  // Handlers
-  const handleSelectItem = (itemId: string) => {
-    setSelectedItemId(itemId);
-  };
-
-  const handleNav = (direction: "prev" | "next") => {
-    const nextIdx = direction === "next" ? selectedIdx + 1 : selectedIdx - 1;
-    if (nextIdx >= 0 && nextIdx < items.length) {
-      setSelectedItemId(items[nextIdx].id);
-    }
-  };
 
   useEffect(() => {
     const loadAmendments = async () => {
@@ -168,20 +161,63 @@ export default function MeetingOwnerPage() {
   }, [proposal]);
 
   useEffect(() => {
+    setConstitutionLinksInput(parseConstitutionLinks(proposal?.summary).join(", "));
+  }, [proposal?.id, proposal?.summary]);
+
+  useEffect(() => {
     if (!amendmentSuccess) return;
     const timeout = setTimeout(() => setAmendmentSuccess(null), 4000);
     return () => clearTimeout(timeout);
   }, [amendmentSuccess]);
 
   useEffect(() => {
-    setConstitutionLinksInput(parseConstitutionLinks(proposal?.summary).join(", "));
-  }, [proposal?.id, proposal?.summary]);
-
-  useEffect(() => {
     if (!copyMessage) return;
     const timeout = setTimeout(() => setCopyMessage(null), 2000);
     return () => clearTimeout(timeout);
   }, [copyMessage]);
+
+  useEffect(() => {
+    if (!activeVersion?.id) {
+      previousVoteStatusRef.current = null;
+      setShowVotingModal(false);
+      return;
+    }
+
+    const pollVoting = async () => {
+      try {
+        const res = await fetch(`/api/votes?proposalVersionId=${activeVersion.id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const status = String(data?.status ?? "not_open");
+        if (status === "open" && previousVoteStatusRef.current !== "open") {
+          setShowVotingModal(true);
+        }
+        if (status !== "open") {
+          setShowVotingModal(false);
+        }
+        previousVoteStatusRef.current = status;
+      } catch {
+        // ignore voting poll errors
+      }
+    };
+
+    pollVoting();
+    const interval = setInterval(pollVoting, 2000);
+    return () => clearInterval(interval);
+  }, [activeVersion?.id]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "ArrowRight" && currentSlide < slideCount - 1) {
+        changeSlide(currentSlide + 1);
+      }
+      if (event.key === "ArrowLeft" && currentSlide > 0) {
+        changeSlide(currentSlide - 1);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [currentSlide, slideCount, changeSlide]);
 
   const handleSubmitAmendment = async () => {
     if (!proposal || !amendText.trim()) return;
@@ -262,10 +298,19 @@ export default function MeetingOwnerPage() {
     router.push("/");
   };
 
+  const chipValues = useMemo(
+    () => [
+      { label: "ITEM", value: currentSlide === 0 ? "TITLE" : `#${currentSlide}` },
+      { label: "TYPE", value: currentItem?.category?.toUpperCase() || "INTRO" },
+      { label: "MEETING", value: String(meeting?.year ?? new Date().getFullYear()) },
+    ],
+    [currentSlide, currentItem?.category, meeting?.year],
+  );
+
   if (sessionLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <p className="text-gray-400">Loading...</p>
+        <p className="text-white/50">Loading...</p>
       </div>
     );
   }
@@ -277,7 +322,7 @@ export default function MeetingOwnerPage() {
       <div className="min-h-screen bg-black text-white">
         <Nav teamName={session.team_name} isCommissioner={isCommissioner} onLogout={logout} />
         <div className="flex items-center justify-center h-96">
-          <p className="text-gray-400">No live meeting found.</p>
+          <p className="text-white/50">No live meeting found.</p>
         </div>
       </div>
     );
@@ -288,179 +333,201 @@ export default function MeetingOwnerPage() {
       <div className="min-h-screen bg-black text-white">
         <Nav teamName={session.team_name} isCommissioner={isCommissioner} onLogout={logout} />
         <div className="flex items-center justify-center h-96">
-          <p className="text-gray-400">Loading meeting...</p>
+          <p className="text-white/50">Loading meeting...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#070707] text-white">
       <Nav teamName={session.team_name} isCommissioner={isCommissioner} onLogout={logout} />
 
-      {/* Error banner */}
       {error && (
-        <div className="bg-red-900/80 border border-red-700 text-red-200 px-4 py-2 flex justify-between items-center">
+        <div className="mx-8 mt-4 bg-red-900/70 border border-red-700 text-red-200 px-4 py-2 rounded-xl flex justify-between items-center">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-400 hover:text-white ml-4">✕</button>
+          <button onClick={() => setError(null)} className="text-red-300 hover:text-white ml-4">✕</button>
         </div>
       )}
 
-      {/* Meeting header */}
-      <div className="bg-gray-900 border-b border-gray-800 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">{meeting.title}</h1>
-            <p className="text-sm text-gray-400">
-              {meeting.year} •{" "}
-              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-600 text-white">
-                LIVE
-              </span>
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={handleExitMeeting} className="text-xs px-3 py-1 rounded bg-red-700 hover:bg-red-600">
-              Exit meeting
-            </button>
-          </div>
-        </div>
-      </div>
+      <main className="group relative h-[calc(100vh-74px)] overflow-hidden">
+        {currentSlide > 0 && (
+          <button
+            onClick={() => changeSlide(currentSlide - 1)}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full border border-white/20 bg-black/40 text-white/80 hover:text-white hover:border-white/50 opacity-0 group-hover:opacity-100 transition"
+            aria-label="Previous slide"
+          >
+            ←
+          </button>
+        )}
+        {currentSlide < slideCount - 1 && (
+          <button
+            onClick={() => changeSlide(currentSlide + 1)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full border border-white/20 bg-black/40 text-white/80 hover:text-white hover:border-white/50 opacity-0 group-hover:opacity-100 transition"
+            aria-label="Next slide"
+          >
+            →
+          </button>
+        )}
 
-      <div className="flex h-[calc(100vh-8rem)]">
-        {/* Sidebar: Agenda list */}
-        <aside className="w-80 bg-gray-900 border-r border-gray-800 overflow-y-auto flex-shrink-0">
-          <div className="p-4">
-            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Agenda</h2>
-            {items.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleSelectItem(item.id)}
-                className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors ${
-                  item.id === selectedItemId
-                    ? "bg-blue-900/60 border border-blue-700 text-white"
-                    : "hover:bg-gray-800 text-gray-300"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm truncate">{item.title}</span>
-                </div>
-                <span className="text-[10px] text-gray-500 ml-4">
-                  {item.category === "proposal" ? "📋 Proposal" : "📌 General"}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Prev/Next buttons */}
-          <div className="p-4 border-t border-gray-800 flex gap-2">
-            <button
-              onClick={() => handleNav("prev")}
-              disabled={selectedIdx <= 0}
-              className="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed rounded text-sm"
-            >
-              ← Prev
-            </button>
-            <button
-              onClick={() => handleNav("next")}
-              disabled={selectedIdx >= items.length - 1}
-              className="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed rounded text-sm"
-            >
-              Next →
-            </button>
-          </div>
-        </aside>
-
-        {/* Main: selected proposal */}
-        <main className="flex-1 overflow-y-auto p-6">
-          {!selectedItem ? (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              <p>Select an agenda item to view details.</p>
-            </div>
-          ) : (
-            <div className="max-w-4xl mx-auto space-y-6">
-              {/* Item header */}
+        {currentSlide === 0 ? (
+          <section className="h-full grid grid-cols-1 md:grid-cols-2">
+            <div className="bg-[#050505] flex flex-col justify-between p-10 md:p-16">
               <div>
-                <h2 className="text-3xl font-bold">{selectedItem.title}</h2>
-                <p className="text-sm text-gray-400 mt-1">
-                  {selectedItem.category === "proposal" ? "📋 Proposal" : "📌 General Item"}
-                </p>
+                <p className="text-xs uppercase tracking-[0.24em] text-white/50">Current Meeting</p>
+                <h1 className="text-4xl md:text-6xl font-semibold mt-5 tracking-tight leading-tight">CFC Owners Meeting 2026</h1>
               </div>
+              <div className="space-y-4">
+                <div className="h-16 w-16 rounded-2xl border border-white/20 bg-white/5 flex items-center justify-center text-xl tracking-[0.22em] font-semibold">
+                  CFC
+                </div>
+                <p className="text-sm text-white/50">Annual owners meeting agenda and proposal voting deck.</p>
+                <button
+                  onClick={handleExitMeeting}
+                  className="text-xs text-white/50 hover:text-white transition-colors"
+                >
+                  Exit meeting
+                </button>
+              </div>
+            </div>
+            <div className="relative overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,#6d28d9_0%,transparent_45%),radial-gradient(circle_at_80%_30%,#2563eb_0%,transparent_42%),radial-gradient(circle_at_50%_80%,#0ea5e9_0%,transparent_38%),linear-gradient(135deg,#101010,#050505)]" />
+              <div className="absolute inset-0 opacity-20 mix-blend-soft-light" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2790%27 height=%2790%27 viewBox=%270 0 90 90%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.8%27 numOctaves=%272%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%2790%27 height=%2790%27 filter=%27url(%23n)%27 opacity=%270.6%27/%3E%3C/svg%3E')" }} />
+              <div className="absolute bottom-8 right-8 text-right">
+                <p className="text-xs uppercase tracking-[0.2em] text-white/60">Image Slot</p>
+                <p className="text-sm text-white/40">Drop in /public/title-image.jpg later</p>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="h-full overflow-auto px-8 py-8 md:px-14 md:py-12">
+            <div className="max-w-7xl mx-auto space-y-6">
+              <header className="border border-white/10 bg-white/[0.03] rounded-2xl p-6">
+                <p className="text-xs uppercase tracking-[0.24em] text-white/40">{meeting.title}</p>
+                <h2 className="text-4xl md:text-6xl font-semibold tracking-[0.05em] mt-2">PROPOSAL #{currentSlide}</h2>
+                <p className="text-lg text-white/70 mt-3">{currentItem?.title || "Untitled agenda item"}</p>
+                <div className="flex flex-wrap gap-2 mt-5">
+                  {chipValues.map((chip) => (
+                    <span key={chip.label} className="px-3 py-1 text-xs rounded-full border border-white/15 bg-white/[0.04] text-white/70">
+                      {chip.label}: {chip.value}
+                    </span>
+                  ))}
+                </div>
+              </header>
 
-              {/* Proposal details */}
-              {selectedItem.category === "proposal" && proposal && (
-                <>
-                  <div className="bg-gray-900 rounded-lg p-6 border border-gray-800 space-y-4">
-                    {proposal.summary && (
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-400 uppercase mb-1">Summary</h3>
-                        <p className="text-gray-200">{summaryText || "—"}</p>
-                      </div>
-                    )}
+              {currentItem?.category === "proposal" ? (
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                  <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
+                    <h3 className="text-xs uppercase tracking-[0.2em] text-white/40">Summary</h3>
+                    <p className="text-sm text-white/80 whitespace-pre-wrap">{summaryText || "No summary provided."}</p>
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-400 uppercase mb-1">Constitution links</h3>
+                      <h4 className="text-xs uppercase tracking-[0.2em] text-white/40 mb-2">Constitution Links</h4>
                       {constitutionLinks.length === 0 ? (
-                        <p className="text-xs text-gray-500">No constitution sections linked.</p>
+                        <p className="text-xs text-white/40">No linked sections.</p>
                       ) : (
                         <div className="flex flex-wrap gap-2">
                           {constitutionLinks.map((link) => (
-                            <a
-                              key={link}
-                              href={`#${constitutionAnchorId(link)}`}
-                              className="text-xs px-2 py-1 rounded bg-blue-900/60 border border-blue-700 text-blue-200"
-                            >
-                              {link}
-                            </a>
+                            <span key={link} className="text-xs px-2 py-1 rounded-md border border-blue-400/30 bg-blue-500/10 text-blue-200">{link}</span>
                           ))}
                         </div>
                       )}
                     </div>
-                    {isCommissioner && (
+                    {isCommissioner && proposal && (
                       <div className="space-y-2">
-                        <label className="text-xs text-gray-400 block">
-                          Affected constitution sections (comma-separated)
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            value={constitutionLinksInput}
-                            onChange={(e) => setConstitutionLinksInput(e.target.value)}
-                            className="flex-1 bg-gray-800 border border-gray-700 rounded p-2 text-sm text-white"
-                            placeholder="3.2, 4.1(b)"
-                          />
-                          <button
-                            onClick={handleSaveConstitutionLinks}
-                            disabled={savingConstitutionLinks}
-                            className="px-3 py-2 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 rounded text-xs font-semibold"
-                          >
-                            {savingConstitutionLinks ? "Saving..." : "Save"}
-                          </button>
-                        </div>
+                        <label className="text-xs text-white/50 block">Edit constitution links (comma-separated)</label>
+                        <input
+                          value={constitutionLinksInput}
+                          onChange={(e) => setConstitutionLinksInput(e.target.value)}
+                          className="w-full bg-black/40 border border-white/15 rounded p-2 text-sm text-white"
+                          placeholder="3.2, 4.1(b)"
+                        />
+                        <button
+                          onClick={handleSaveConstitutionLinks}
+                          disabled={savingConstitutionLinks}
+                          className="text-xs px-3 py-1.5 rounded border border-white/20 hover:border-white/40 disabled:opacity-40"
+                        >
+                          {savingConstitutionLinks ? "Saving..." : "Save links"}
+                        </button>
                       </div>
                     )}
-                    {proposal.effective_date && (
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-400 uppercase mb-1">Effective Date</h3>
-                        <p className="text-gray-200">{proposal.effective_date}</p>
-                      </div>
-                    )}
-                  </div>
+                  </article>
 
-                  {/* Active version text */}
-                  {activeVersion && (
-                    <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-                      <h3 className="text-sm font-semibold text-gray-400 uppercase mb-2">
-                        Proposal Text (v{activeVersion.version_number})
-                      </h3>
-                      <div className="text-gray-200 whitespace-pre-wrap bg-black/50 rounded p-4 border border-gray-700">
-                        {activeVersion.full_text || <span className="text-gray-500 italic">No text provided.</span>}
-                      </div>
+                  <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
+                    <h3 className="text-xs uppercase tracking-[0.2em] text-white/40">Proposal Text</h3>
+                    <p className="text-xs text-white/50">Version {activeVersion?.version_number ?? "—"}</p>
+                    <div className="rounded-xl border border-white/10 bg-black/30 p-4 max-h-80 overflow-auto text-sm whitespace-pre-wrap text-white/80">
+                      {activeVersion?.full_text || "No proposal text provided."}
                     </div>
-                  )}
+                    <p className="text-xs text-white/50">Effective date: {proposal?.effective_date || "TBD"}</p>
+                    <VotingPanel proposalVersionId={activeVersion?.id} isCommissioner={isCommissioner} />
+                  </article>
 
-                  <div className="bg-gray-900 rounded-lg p-6 border border-gray-800 space-y-3">
-                    <h3 className="text-sm font-semibold text-gray-400 uppercase">View Constitution</h3>
-                    {copyMessage && <p className="text-xs text-green-400">{copyMessage}</p>}
-                    <div className="max-h-48 overflow-auto space-y-2">
-                      {constitutionSections.map((section) => {
+                  <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs uppercase tracking-[0.2em] text-white/40">Amendments & References</h3>
+                      {canSubmitAmendment && (
+                        <button
+                          onClick={() => setShowAmendmentForm((v) => !v)}
+                          className="text-xs px-2.5 py-1 rounded border border-white/20 hover:border-white/40"
+                        >
+                          {showAmendmentForm ? "Close" : "Add"}
+                        </button>
+                      )}
+                    </div>
+
+                    {amendmentSuccess && <p className="text-xs text-green-300">{amendmentSuccess}</p>}
+
+                    {canSubmitAmendment && showAmendmentForm && (
+                      <div className="space-y-2 rounded-lg border border-white/10 bg-black/30 p-3">
+                        <textarea
+                          value={amendText}
+                          onChange={(e) => setAmendText(e.target.value)}
+                          placeholder="Suggested text"
+                          className="w-full bg-black/50 border border-white/15 rounded p-2 text-sm min-h-[72px]"
+                        />
+                        <textarea
+                          value={amendRationale}
+                          onChange={(e) => setAmendRationale(e.target.value)}
+                          placeholder="Rationale"
+                          className="w-full bg-black/50 border border-white/15 rounded p-2 text-sm"
+                        />
+                        <button
+                          onClick={handleSubmitAmendment}
+                          disabled={!amendText.trim() || submittingAmendment}
+                          className="text-xs px-3 py-1.5 rounded border border-white/20 hover:border-white/40 disabled:opacity-40"
+                        >
+                          {submittingAmendment ? "Submitting..." : "Submit amendment"}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 max-h-48 overflow-auto">
+                      {amendments.length === 0 ? (
+                        <p className="text-xs text-white/40">No amendments submitted.</p>
+                      ) : (
+                        amendments.map((a) => (
+                          <div key={a.id} className="rounded-lg border border-white/10 bg-black/30 p-2.5">
+                            <p className="text-xs text-white/80 whitespace-pre-wrap">{a.proposed_text}</p>
+                            {a.rationale && <p className="text-[11px] text-white/50 mt-1">Rationale: {a.rationale}</p>}
+                            <div className="mt-1 flex items-center justify-between">
+                              <span className="text-[11px] text-white/40">{a.submitted_by_team || "Unknown team"}</span>
+                              {isCommissioner && (a.status === "pending" || a.status === "submitted") && (
+                                <button
+                                  onClick={() => handleReviewAmendment(a.id)}
+                                  className="text-[11px] px-2 py-0.5 rounded border border-white/20 hover:border-white/40"
+                                >
+                                  Accept
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {copyMessage && <p className="text-xs text-green-300">{copyMessage}</p>}
+                    <div className="space-y-2 max-h-36 overflow-auto">
+                      {constitutionSections.slice(0, 24).map((section) => {
                         const fragment = `#${constitutionAnchorId(section.section_key)}`;
                         return (
                           <button
@@ -471,116 +538,42 @@ export default function MeetingOwnerPage() {
                               await navigator.clipboard.writeText(deepLink).catch(() => {});
                               setCopyMessage(`Copied ${fragment}`);
                             }}
-                            className="w-full text-left px-3 py-2 rounded bg-black/40 border border-gray-800 hover:border-gray-600"
+                            className="w-full text-left rounded border border-white/10 bg-black/30 p-2 hover:border-white/30"
                           >
-                            <p className="text-xs text-blue-300">{section.section_key}</p>
-                            <p className="text-sm text-gray-200">{section.title}</p>
+                            <p className="text-[11px] text-blue-200">{section.section_key}</p>
+                            <p className="text-xs text-white/70 truncate">{section.title}</p>
                           </button>
                         );
                       })}
                     </div>
-                  </div>
-
-                  {activeVersion && (
-                    <VotingPanel
-                      proposalVersionId={activeVersion.id}
-                      isCommissioner={isCommissioner}
-                    />
-                  )}
-
-                  <div className="bg-gray-900 rounded-lg p-6 border border-gray-800 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-gray-400 uppercase">Amendments</h3>
-                      {canSubmitAmendment && (
-                        <button
-                          onClick={() => setShowAmendmentForm((v) => !v)}
-                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-xs font-semibold"
-                        >
-                          Submit Amendment
-                        </button>
-                      )}
-                    </div>
-
-                    {amendmentSuccess && <p className="text-xs text-green-400">{amendmentSuccess}</p>}
-
-                    {canSubmitAmendment && showAmendmentForm && (
-                      <div className="space-y-2 bg-black/50 rounded p-4 border border-gray-700">
-                        <textarea
-                          value={amendText}
-                          onChange={(e) => setAmendText(e.target.value)}
-                          placeholder="Suggested text"
-                          className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm text-white placeholder-gray-500 min-h-[80px]"
-                        />
-                        <textarea
-                          value={amendRationale}
-                          onChange={(e) => setAmendRationale(e.target.value)}
-                          placeholder="Rationale"
-                          className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm text-white placeholder-gray-500"
-                        />
-                        <button
-                          onClick={handleSubmitAmendment}
-                          disabled={!amendText.trim() || submittingAmendment}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded text-sm font-semibold"
-                        >
-                          {submittingAmendment ? "Submitting..." : "Submit"}
-                        </button>
-                      </div>
-                    )}
-
-                    {amendments.length === 0 ? (
-                      <p className="text-sm text-gray-500">No amendments submitted.</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {amendments.map((a) => (
-                          <div key={a.id} className="bg-black/50 rounded p-3 border border-gray-700">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1">
-                                <p className="text-sm text-gray-200 whitespace-pre-wrap">{a.proposed_text}</p>
-                                {a.rationale && (
-                                  <p className="text-xs text-gray-400 mt-1 italic">Rationale: {a.rationale}</p>
-                                )}
-                                <div className="flex items-center gap-2 mt-1">
-                                  {a.submitted_by_team && (
-                                    <span className="text-xs text-gray-500">by {a.submitted_by_team}</span>
-                                  )}
-                                  <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${
-                                    a.status === "accepted" ? "bg-green-800 text-green-200" :
-                                    a.status === "rejected" ? "bg-red-800 text-red-200" :
-                                    "bg-yellow-800 text-yellow-200"
-                                  }`}>
-                                    {a.status === "pending" ? "submitted" : a.status}
-                                  </span>
-                                </div>
-                              </div>
-                              {isCommissioner && (a.status === "pending" || a.status === "submitted") && (
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => handleReviewAmendment(a.id)}
-                                    className="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-xs font-semibold"
-                                  >
-                                    Accept
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* General item placeholder */}
-              {selectedItem.category !== "proposal" && (
-                <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-                  <p className="text-gray-400 italic">General / Discussion Item</p>
+                  </article>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
+                  <h3 className="text-xs uppercase tracking-[0.2em] text-white/40">Admin Slide</h3>
+                  <p className="text-3xl mt-3 font-medium">{currentItem?.title || "General agenda item"}</p>
+                  <p className="text-white/60 mt-3 max-w-3xl">This item is discussion-only. Voting is not required for this slide.</p>
                 </div>
               )}
             </div>
-          )}
-        </main>
-      </div>
+          </section>
+        )}
+      </main>
+
+      {showVotingModal && activeVersion?.id && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-white/20 bg-[#0b0b0b] p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-white/50">Voting in progress</p>
+                <p className="text-lg font-medium">{currentItem?.title || "Current proposal"}</p>
+              </div>
+              <button onClick={() => setShowVotingModal(false)} className="text-white/60 hover:text-white text-sm">Close</button>
+            </div>
+            <VotingPanel proposalVersionId={activeVersion.id} isCommissioner={isCommissioner} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
