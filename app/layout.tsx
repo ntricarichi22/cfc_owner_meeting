@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import SessionAutoRelease from "@/components/SessionAutoRelease";
 
 export const metadata: Metadata = {
   title: "CFC Owners Meeting",
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased bg-black text-white font-sans">
+        <SessionAutoRelease />
         {children}
       </body>
     </html>

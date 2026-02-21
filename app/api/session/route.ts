@@ -14,6 +14,26 @@ export async function POST(req: NextRequest) {
   }
 
   const sb = getSupabaseServer();
+  const existingSession = await getSession();
+
+  if (existingSession?.session_id) {
+    const { data: existingSessionRow, error: sessionRowError } = await sb
+      .from("team_sessions")
+      .select("id, team_id, team_name")
+      .eq("id", existingSession.session_id)
+      .maybeSingle();
+
+    if (sessionRowError) {
+      return NextResponse.json(
+        { error: "Failed to check team session" },
+        { status: 500 }
+      );
+    }
+
+    if (existingSessionRow && existingSessionRow.team_id === teamId) {
+      return NextResponse.json({ ok: true });
+    }
+  }
 
   // Check if this team is already claimed in the last 24 hours
   const cutoff = new Date(Date.now() - SESSION_CLAIM_TIMEOUT_MS).toISOString();

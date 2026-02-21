@@ -84,7 +84,13 @@ export async function getSession(): Promise<SessionPayload | null> {
 
 export async function clearSession() {
   const cookieStore = await cookies();
-  cookieStore.delete(COOKIE_NAME);
+  cookieStore.set(COOKIE_NAME, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    expires: new Date(0),
+  });
 }
 
 export async function requireCommissioner(): Promise<SessionPayload> {
