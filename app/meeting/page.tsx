@@ -75,18 +75,6 @@ export default function MeetingOwnerPage() {
   const summaryText = summaryWithoutConstitutionLinks(proposal?.summary);
   const constitutionLinks = parseConstitutionLinks(proposal?.summary);
 
-  const releaseMeetingSession = useCallback(() => {
-    try {
-      const url = `${window.location.origin}/api/session/release`;
-      const sent = navigator.sendBeacon?.(url);
-      if (!sent) {
-        void fetch("/api/session/release", { method: "POST", keepalive: true });
-      }
-    } catch {
-      void fetch("/api/session/release", { method: "POST", keepalive: true });
-    }
-  }, []);
-
   // Redirect if no session
   useEffect(() => {
     if (!sessionLoading && !session) {
@@ -194,17 +182,6 @@ export default function MeetingOwnerPage() {
     const timeout = setTimeout(() => setCopyMessage(null), 2000);
     return () => clearTimeout(timeout);
   }, [copyMessage]);
-
-  useEffect(() => {
-    const onBeforeUnload = () => releaseMeetingSession();
-    const onPageHide = () => releaseMeetingSession();
-    window.addEventListener("beforeunload", onBeforeUnload);
-    window.addEventListener("pagehide", onPageHide);
-    return () => {
-      window.removeEventListener("beforeunload", onBeforeUnload);
-      window.removeEventListener("pagehide", onPageHide);
-    };
-  }, [releaseMeetingSession]);
 
   const handleSubmitAmendment = async () => {
     if (!proposal || !amendText.trim()) return;
