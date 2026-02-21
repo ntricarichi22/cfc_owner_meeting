@@ -25,8 +25,10 @@ export default function MeetingOwnerPage() {
   const [amendText, setAmendText] = useState("");
   const [amendRationale, setAmendRationale] = useState("");
   const [submittingAmendment, setSubmittingAmendment] = useState(false);
+  const [amendmentSuccess, setAmendmentSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [meetingNotFound, setMeetingNotFound] = useState(false);
+  const canSubmitAmendment = session?.team_name === "Virginia Founders";
 
   const selectedItem = items.find((i) => i.id === selectedItemId) ?? null;
   const selectedIdx = items.findIndex((i) => i.id === selectedItemId);
@@ -116,25 +118,37 @@ export default function MeetingOwnerPage() {
     loadAmendments();
   }, [proposal]);
 
+  useEffect(() => {
+    if (!amendmentSuccess) return;
+    const timeout = setTimeout(() => setAmendmentSuccess(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [amendmentSuccess]);
+
   const handleSubmitAmendment = async () => {
     if (!proposal || !amendText.trim()) return;
     setSubmittingAmendment(true);
+    setError(null);
+    setAmendmentSuccess(null);
     try {
       const res = await fetch("/api/amendments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           proposalId: proposal.id,
-          suggestedText: amendText,
+          proposedText: amendText,
           rationale: amendRationale || undefined,
         }),
       });
-      if (!res.ok) throw new Error("Failed to submit amendment");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || body?.error || "Failed to submit amendment");
+      }
       setAmendText("");
       setAmendRationale("");
       setShowAmendmentForm(false);
       const refreshed = await fetch(`/api/amendments?proposalId=${proposal.id}`);
       if (refreshed.ok) setAmendments(await refreshed.json());
+      setAmendmentSuccess("Amendment submitted successfully.");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to submit amendment");
     } finally {
@@ -310,15 +324,19 @@ export default function MeetingOwnerPage() {
                   <div className="bg-gray-900 rounded-lg p-6 border border-gray-800 space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-semibold text-gray-400 uppercase">Amendments</h3>
-                      <button
-                        onClick={() => setShowAmendmentForm((v) => !v)}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-xs font-semibold"
-                      >
-                        Submit Amendment
-                      </button>
+                      {canSubmitAmendment && (
+                        <button
+                          onClick={() => setShowAmendmentForm((v) => !v)}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-xs font-semibold"
+                        >
+                          Submit Amendment
+                        </button>
+                      )}
                     </div>
 
-                    {showAmendmentForm && (
+                    {amendmentSuccess && <p className="text-xs text-green-400">{amendmentSuccess}</p>}
+
+                    {canSubmitAmendment && showAmendmentForm && (
                       <div className="space-y-2 bg-black/50 rounded p-4 border border-gray-700">
                         <textarea
                           value={amendText}
