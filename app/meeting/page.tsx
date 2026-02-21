@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
@@ -299,15 +299,6 @@ export default function MeetingOwnerPage() {
     router.push("/");
   };
 
-  const chipValues = useMemo(
-    () => [
-      { label: "ITEM", value: currentSlide === 0 ? "TITLE" : `#${currentSlide}` },
-      { label: "TYPE", value: currentItem?.category?.toUpperCase() || "INTRO" },
-      { label: "MEETING", value: String(meeting?.year ?? new Date().getFullYear()) },
-    ],
-    [currentSlide, currentItem?.category, meeting?.year],
-  );
-
   if (sessionLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -403,19 +394,8 @@ export default function MeetingOwnerPage() {
         ) : (
           <section className="h-full overflow-auto px-8 py-8 md:px-14 md:py-12">
             <div className="max-w-7xl mx-auto space-y-6">
-              <header className="border border-white/10 bg-white/[0.03] rounded-2xl p-6">
-                <p className="text-xs uppercase tracking-[0.24em] text-white/40">{meeting.title}</p>
-                <h2 className="text-4xl md:text-6xl font-semibold tracking-[0.05em] mt-2">
-                  {(currentItem?.category === "proposal" ? "PROPOSAL" : "AGENDA ITEM")} #{currentSlide}
-                </h2>
-                <p className="text-lg text-white/70 mt-3">{currentItem?.title || "Untitled agenda item"}</p>
-                <div className="flex flex-wrap gap-2 mt-5">
-                  {chipValues.map((chip) => (
-                    <span key={chip.label} className="px-3 py-1 text-xs rounded-full border border-white/15 bg-white/[0.04] text-white/70">
-                      {chip.label}: {chip.value}
-                    </span>
-                  ))}
-                </div>
+              <header className="border border-white/10 bg-white/[0.03] rounded-2xl px-4 py-2.5">
+                <p className="text-sm font-medium tracking-[0.04em] text-white/80">Proposal #{currentSlide}</p>
               </header>
 
               {currentItem?.category === "proposal" ? (
