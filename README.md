@@ -61,6 +61,8 @@ The script creates all eight MVP tables (`constitution_sections`, `meetings`,
 `audit_events`), adds indexes, and inserts seed data (one meeting for the
 current year, four agenda items, two sample proposals with v1 versions).
 
+For PR4 objects: **Supabase → SQL Editor → run supabase/pr4_voting_minutes.sql**.
+
 ### 3. Run Locally
 
 ```bash

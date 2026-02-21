@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
+import VotingPanel from "@/components/VotingPanel";
 import type {
   Meeting,
   AgendaItem,
@@ -70,6 +71,17 @@ export default function PresenterPage() {
     return () => clearInterval(interval);
   }, [session, loadMeeting]);
 
+  const handleToggleMeetingLock = async () => {
+    if (!meeting) return;
+    const res = await fetch("/api/meetings/lock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locked: !meeting.locked }),
+    });
+    if (!res.ok) return;
+    setMeeting((prev) => (prev ? { ...prev, locked: !prev.locked } : prev));
+  };
+
   if (sessionLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -122,6 +134,14 @@ export default function PresenterPage() {
             Presenter View • Item {currentIdx + 1} of {items.length}
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          {meeting.locked && <span className="text-xs text-red-300 bg-red-900/50 px-2 py-1 rounded">Meeting Locked</span>}
+          {isCommissioner && (
+            <button onClick={handleToggleMeetingLock} className="text-xs px-3 py-1 rounded bg-red-700 hover:bg-red-600">
+              {meeting.locked ? "Unlock Meeting" : "Lock Meeting"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main content: current item */}
@@ -159,6 +179,16 @@ export default function PresenterPage() {
                       {activeVersion.full_text || <span className="text-gray-500 italic">No text provided.</span>}
                     </div>
                   </div>
+                )}
+
+                {activeVersion && (
+                  <VotingPanel
+                    proposalVersionId={activeVersion.id}
+                    meetingLocked={meeting.locked}
+                    isCommissioner={isCommissioner}
+                    onMeetingLockChanged={(locked) => setMeeting((prev) => (prev ? { ...prev, locked } : prev))}
+                    presenterMode
+                  />
                 )}
 
                 {proposal.effective_date && (
