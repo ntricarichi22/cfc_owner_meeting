@@ -714,7 +714,7 @@ export default function MeetingPage({
                                     a.status === "withdrawn" ? "bg-gray-700 text-gray-400" :
                                     "bg-yellow-800 text-yellow-200"
                                   }`}>
-                                    {a.status}
+                                    {a.status === "pending" ? "submitted" : a.status}
                                   </span>
                                 </div>
                               </div>

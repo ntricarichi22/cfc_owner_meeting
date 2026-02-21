@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     proposed_text: proposedText,
     rationale: rationale || null,
     submitted_by_team: teamSession.team_name,
-    status: "pending",
+    status: "submitted",
   });
   if (result.error) {
     return NextResponse.json(
