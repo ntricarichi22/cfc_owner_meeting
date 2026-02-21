@@ -78,7 +78,7 @@ export default function MeetingOwnerPage() {
   const releaseMeetingSession = useCallback(() => {
     try {
       const url = `${window.location.origin}/api/session/release`;
-      const sent = navigator.sendBeacon?.(url, new Blob([], { type: "application/json" }));
+      const sent = navigator.sendBeacon?.(url);
       if (!sent) {
         void fetch("/api/session/release", { method: "POST", keepalive: true });
       }
@@ -244,7 +244,7 @@ export default function MeetingOwnerPage() {
       const res = await fetch("/api/amendments", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amendmentId, action: "accept" }),
+        body: JSON.stringify({ amendmentId }),
       });
       if (!res.ok) throw new Error("Failed to accept amendment");
       const [proposalsRes, amendmentsRes] = await Promise.all([

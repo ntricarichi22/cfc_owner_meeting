@@ -30,8 +30,8 @@ export async function POST(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-  const fallbackSession = await getSession();
-  const sessionLookup = fallbackSession?.owner_id || fallbackSession?.team_name;
+  const currentSession = await getSession();
+  const sessionLookup = currentSession?.owner_id || currentSession?.team_name;
   if (!sessionLookup) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -126,13 +126,12 @@ export async function PATCH(req: NextRequest) {
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
-  const { amendmentId, action } = body as {
+  const { amendmentId } = body as {
     amendmentId?: string;
-    action?: string;
   };
 
-  if (!amendmentId || action !== "accept") {
-    return NextResponse.json({ error: "amendmentId and action=accept are required" }, { status: 400 });
+  if (!amendmentId) {
+    return NextResponse.json({ error: "amendmentId is required" }, { status: 400 });
   }
 
   try {

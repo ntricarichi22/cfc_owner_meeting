@@ -92,7 +92,6 @@ export async function GET(req: NextRequest) {
     totals: {
       yes: voteSession.data?.yes_count || 0,
       no: voteSession.data?.no_count || 0,
-      abstain: 0,
       total: voteSession.data?.total_count || 0,
     },
     passed: voteSession.data?.passed ?? null,
