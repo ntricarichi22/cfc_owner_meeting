@@ -22,17 +22,14 @@ export function useSession() {
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // We store session in localStorage as a cache; the real auth is the signed cookie
   useEffect(() => {
-    const cached = localStorage.getItem("cfc_session");
-    if (cached) {
-      try {
-        setSession(JSON.parse(cached));
-      } catch {
-        // ignore
-      }
-    }
-    setLoading(false);
+    fetch("/api/session")
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return (await res.json()) as SessionData;
+      })
+      .then((data) => setSession(data))
+      .finally(() => setLoading(false));
   }, []);
 
   const selectTeam = useCallback(async (teamId: string, teamName: string) => {
@@ -53,14 +50,12 @@ export function useSession() {
       league_id: "",
     };
     setSession(s);
-    localStorage.setItem("cfc_session", JSON.stringify(s));
     return s;
   }, []);
 
   const logout = useCallback(async () => {
-    await fetch("/api/session", { method: "DELETE" });
+    await fetch("/api/session/release", { method: "POST" });
     setSession(null);
-    localStorage.removeItem("cfc_session");
   }, []);
 
   return { session, loading, selectTeam, logout, isCommissioner: session?.team_name === COMMISSIONER_TEAM_NAME };

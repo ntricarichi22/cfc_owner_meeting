@@ -71,7 +71,7 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ meeti
 
     if (voteSession?.status === "tallied") {
       markdown += `- Vote result: ${voteSession.passed ? "PASSED" : "FAILED"}\n`;
-      markdown += `- Totals: YES ${voteSession.yes_count}, NO ${voteSession.no_count}, ABSTAIN ${voteSession.abstain_count}, TOTAL ${voteSession.total_count}\n`;
+      markdown += `- Totals: YES ${voteSession.yes_count}, NO ${voteSession.no_count}, TOTAL ${voteSession.total_count}\n`;
       if (voteSession.opened_at) markdown += `- Voting opened: ${voteSession.opened_at}\n`;
       if (voteSession.closed_at) markdown += `- Voting closed: ${voteSession.closed_at}\n`;
       if (voteSession.tallied_at) markdown += `- Voting tallied: ${voteSession.tallied_at}\n`;

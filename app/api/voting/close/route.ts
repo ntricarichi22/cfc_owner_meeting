@@ -13,7 +13,6 @@ export async function POST(req: NextRequest) {
   const context = await getProposalVersionContext(proposalVersionId).catch((error) => ({ error }));
   if (context && "error" in context) return jsonError(500, "Supabase error", context.error.message, context.error.code);
   if (!context) return jsonError(404, "Proposal version not found");
-  if (context.meeting.locked) return jsonError(409, "Meeting is locked");
 
   const sb = getSupabaseServer();
   const { error } = await sb

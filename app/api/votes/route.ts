@@ -13,12 +13,11 @@ export async function POST(req: NextRequest) {
   }
 
   const normalizedVote = normalizeVote(vote);
-  if (!normalizedVote) return jsonError(400, "vote must be YES, NO, or ABSTAIN");
+  if (!normalizedVote) return jsonError(400, "vote must be YES or NO");
 
   const context = await getProposalVersionContext(proposalVersionId).catch((error) => ({ error }));
   if (context && "error" in context) return jsonError(500, "Supabase error", context.error.message, context.error.code);
   if (!context) return jsonError(404, "Proposal version not found");
-  if (context.meeting.locked) return jsonError(409, "Meeting is locked");
 
   const sb = getSupabaseServer();
   const voteSession = await sb
@@ -93,7 +92,6 @@ export async function GET(req: NextRequest) {
     totals: {
       yes: voteSession.data?.yes_count || 0,
       no: voteSession.data?.no_count || 0,
-      abstain: voteSession.data?.abstain_count || 0,
       total: voteSession.data?.total_count || 0,
     },
     passed: voteSession.data?.passed ?? null,

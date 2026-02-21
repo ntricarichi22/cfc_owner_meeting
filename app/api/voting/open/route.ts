@@ -14,7 +14,6 @@ export async function POST(req: NextRequest) {
   if (context && "error" in context) return jsonError(500, "Supabase error", context.error.message, context.error.code);
   if (!context) return jsonError(404, "Proposal version not found");
   if (!context.version.is_active) return jsonError(409, "Voting may only be opened for the active proposal version");
-  if (context.meeting.locked) return jsonError(409, "Meeting is locked");
 
   const sb = getSupabaseServer();
   const { error } = await sb.from("proposal_vote_sessions").upsert(

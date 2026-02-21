@@ -12,7 +12,37 @@ import type {
   Proposal,
   ProposalVersion,
   Amendment,
+  ConstitutionSection,
 } from "@/lib/types";
+
+const CONSTITUTION_LINKS_PREFIX = "[CONSTITUTION_LINKS:";
+
+function parseConstitutionLinks(summary: string | null | undefined) {
+  if (!summary) return [];
+  const match = summary.match(/\[CONSTITUTION_LINKS:\s*([^\]]*)\]/i);
+  if (!match?.[1]) return [];
+  return match[1].split(",").map((value) => value.trim()).filter(Boolean);
+}
+
+function summaryWithoutConstitutionLinks(summary: string | null | undefined) {
+  if (!summary) return "";
+  return summary.replace(/\s*\[CONSTITUTION_LINKS:[^\]]*\]\s*/gi, "").trim();
+}
+
+function buildSummaryWithConstitutionLinks(summaryText: string, linksCsv: string) {
+  const cleanedSummary = summaryText.trim();
+  const cleanedLinks = linksCsv
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(", ");
+  if (!cleanedLinks) return cleanedSummary;
+  return `${cleanedSummary ? `${cleanedSummary} ` : ""}${CONSTITUTION_LINKS_PREFIX} ${cleanedLinks}]`;
+}
+
+function constitutionAnchorId(sectionKey: string) {
+  return `const-${sectionKey.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+}
 
 export default function MeetingOwnerPage() {
   const router = useRouter();
@@ -23,6 +53,10 @@ export default function MeetingOwnerPage() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [proposals, setProposals] = useState<(Proposal & { proposal_versions?: ProposalVersion[] })[]>([]);
   const [amendments, setAmendments] = useState<Amendment[]>([]);
+  const [constitutionSections, setConstitutionSections] = useState<ConstitutionSection[]>([]);
+  const [constitutionLinksInput, setConstitutionLinksInput] = useState("");
+  const [savingConstitutionLinks, setSavingConstitutionLinks] = useState(false);
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
   const [showAmendmentForm, setShowAmendmentForm] = useState(false);
   const [amendText, setAmendText] = useState("");
   const [amendRationale, setAmendRationale] = useState("");
@@ -38,6 +72,20 @@ export default function MeetingOwnerPage() {
   // Find proposal for the selected agenda item
   const proposal = proposals.find((p) => p.agenda_item_id === selectedItemId) ?? null;
   const activeVersion = proposal?.proposal_versions?.find((v) => v.is_active) ?? null;
+  const summaryText = summaryWithoutConstitutionLinks(proposal?.summary);
+  const constitutionLinks = parseConstitutionLinks(proposal?.summary);
+
+  const releaseMeetingSession = useCallback(() => {
+    try {
+      const url = `${window.location.origin}/api/session/release`;
+      const sent = navigator.sendBeacon?.(url);
+      if (!sent) {
+        void fetch("/api/session/release", { method: "POST", keepalive: true });
+      }
+    } catch {
+      void fetch("/api/session/release", { method: "POST", keepalive: true });
+    }
+  }, []);
 
   // Redirect if no session
   useEffect(() => {
@@ -90,6 +138,17 @@ export default function MeetingOwnerPage() {
     return () => clearInterval(interval);
   }, [session, loadMeeting]);
 
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/constitution-sections")
+      .then(async (res) => {
+        if (!res.ok) return [];
+        return (await res.json()) as ConstitutionSection[];
+      })
+      .then((data) => setConstitutionSections(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [session]);
+
   // Handlers
   const handleSelectItem = (itemId: string) => {
     setSelectedItemId(itemId);
@@ -126,6 +185,27 @@ export default function MeetingOwnerPage() {
     return () => clearTimeout(timeout);
   }, [amendmentSuccess]);
 
+  useEffect(() => {
+    setConstitutionLinksInput(parseConstitutionLinks(proposal?.summary).join(", "));
+  }, [proposal?.id, proposal?.summary]);
+
+  useEffect(() => {
+    if (!copyMessage) return;
+    const timeout = setTimeout(() => setCopyMessage(null), 2000);
+    return () => clearTimeout(timeout);
+  }, [copyMessage]);
+
+  useEffect(() => {
+    const onBeforeUnload = () => releaseMeetingSession();
+    const onPageHide = () => releaseMeetingSession();
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [releaseMeetingSession]);
+
   const handleSubmitAmendment = async () => {
     if (!proposal || !amendText.trim()) return;
     setSubmittingAmendment(true);
@@ -158,15 +238,15 @@ export default function MeetingOwnerPage() {
     }
   };
 
-  const handleReviewAmendment = async (amendmentId: string, action: "accept" | "reject") => {
+  const handleReviewAmendment = async (amendmentId: string) => {
     if (!proposal) return;
     try {
       const res = await fetch("/api/amendments", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amendmentId, action }),
+        body: JSON.stringify({ amendmentId }),
       });
-      if (!res.ok) throw new Error(`Failed to ${action} amendment`);
+      if (!res.ok) throw new Error("Failed to accept amendment");
       const [proposalsRes, amendmentsRes] = await Promise.all([
         fetch(`/api/proposals?meetingId=${meeting?.id}`),
         fetch(`/api/amendments?proposalId=${proposal.id}`),
@@ -174,19 +254,35 @@ export default function MeetingOwnerPage() {
       if (proposalsRes.ok) setProposals(await proposalsRes.json());
       if (amendmentsRes.ok) setAmendments(await amendmentsRes.json());
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : `Failed to ${action} amendment`);
+      setError(e instanceof Error ? e.message : "Failed to accept amendment");
     }
   };
 
-  const handleToggleMeetingLock = async () => {
-    if (!meeting) return;
-    const res = await fetch("/api/meetings/lock", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ locked: !meeting.locked }),
-    });
-    if (!res.ok) return;
-    setMeeting((prev) => (prev ? { ...prev, locked: !prev.locked } : prev));
+  const handleSaveConstitutionLinks = async () => {
+    if (!proposal) return;
+    setSavingConstitutionLinks(true);
+    try {
+      const res = await fetch("/api/proposals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proposalId: proposal.id,
+          summary: buildSummaryWithConstitutionLinks(summaryText, constitutionLinksInput),
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save constitution links");
+      const proposalsRes = await fetch(`/api/proposals?meetingId=${meeting?.id}`);
+      if (proposalsRes.ok) setProposals(await proposalsRes.json());
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to save constitution links");
+    } finally {
+      setSavingConstitutionLinks(false);
+    }
+  };
+
+  const handleExitMeeting = async () => {
+    await fetch("/api/session/release", { method: "POST" });
+    router.push("/");
   };
 
   if (sessionLoading) {
@@ -246,12 +342,9 @@ export default function MeetingOwnerPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {meeting.locked && <span className="text-xs text-red-300 bg-red-900/50 px-2 py-1 rounded">Meeting Locked</span>}
-            {isCommissioner && (
-              <button onClick={handleToggleMeetingLock} className="text-xs px-3 py-1 rounded bg-red-700 hover:bg-red-600">
-                {meeting.locked ? "Unlock Meeting" : "Lock Meeting"}
-              </button>
-            )}
+            <button onClick={handleExitMeeting} className="text-xs px-3 py-1 rounded bg-red-700 hover:bg-red-600">
+              Exit meeting
+            </button>
           </div>
         </div>
       </div>
@@ -323,7 +416,47 @@ export default function MeetingOwnerPage() {
                     {proposal.summary && (
                       <div>
                         <h3 className="text-sm font-semibold text-gray-400 uppercase mb-1">Summary</h3>
-                        <p className="text-gray-200">{proposal.summary}</p>
+                        <p className="text-gray-200">{summaryText || "—"}</p>
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-400 uppercase mb-1">Constitution links</h3>
+                      {constitutionLinks.length === 0 ? (
+                        <p className="text-xs text-gray-500">No constitution sections linked.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {constitutionLinks.map((link) => (
+                            <a
+                              key={link}
+                              href={`#${constitutionAnchorId(link)}`}
+                              className="text-xs px-2 py-1 rounded bg-blue-900/60 border border-blue-700 text-blue-200"
+                            >
+                              {link}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {isCommissioner && (
+                      <div className="space-y-2">
+                        <label className="text-xs text-gray-400 block">
+                          Affected constitution sections (comma-separated)
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            value={constitutionLinksInput}
+                            onChange={(e) => setConstitutionLinksInput(e.target.value)}
+                            className="flex-1 bg-gray-800 border border-gray-700 rounded p-2 text-sm text-white"
+                            placeholder="3.2, 4.1(b)"
+                          />
+                          <button
+                            onClick={handleSaveConstitutionLinks}
+                            disabled={savingConstitutionLinks}
+                            className="px-3 py-2 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 rounded text-xs font-semibold"
+                          >
+                            {savingConstitutionLinks ? "Saving..." : "Save"}
+                          </button>
+                        </div>
                       </div>
                     )}
                     {proposal.effective_date && (
@@ -346,12 +479,35 @@ export default function MeetingOwnerPage() {
                     </div>
                   )}
 
+                  <div className="bg-gray-900 rounded-lg p-6 border border-gray-800 space-y-3">
+                    <h3 className="text-sm font-semibold text-gray-400 uppercase">View Constitution</h3>
+                    {copyMessage && <p className="text-xs text-green-400">{copyMessage}</p>}
+                    <div className="max-h-48 overflow-auto space-y-2">
+                      {constitutionSections.map((section) => {
+                        const fragment = `#${constitutionAnchorId(section.section_key)}`;
+                        return (
+                          <button
+                            id={constitutionAnchorId(section.section_key)}
+                            key={section.id}
+                            onClick={async () => {
+                              const deepLink = `${window.location.origin}/meeting${fragment}`;
+                              await navigator.clipboard.writeText(deepLink).catch(() => {});
+                              setCopyMessage(`Copied ${fragment}`);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded bg-black/40 border border-gray-800 hover:border-gray-600"
+                          >
+                            <p className="text-xs text-blue-300">{section.section_key}</p>
+                            <p className="text-sm text-gray-200">{section.title}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {activeVersion && (
                     <VotingPanel
                       proposalVersionId={activeVersion.id}
-                      meetingLocked={meeting.locked}
                       isCommissioner={isCommissioner}
-                      onMeetingLockChanged={(locked) => setMeeting((prev) => (prev ? { ...prev, locked } : prev))}
                     />
                   )}
 
@@ -422,16 +578,10 @@ export default function MeetingOwnerPage() {
                               {isCommissioner && (a.status === "pending" || a.status === "submitted") && (
                                 <div className="flex gap-2">
                                   <button
-                                    onClick={() => handleReviewAmendment(a.id, "accept")}
+                                    onClick={() => handleReviewAmendment(a.id)}
                                     className="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-xs font-semibold"
                                   >
                                     Accept
-                                  </button>
-                                  <button
-                                    onClick={() => handleReviewAmendment(a.id, "reject")}
-                                    className="px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-xs font-semibold"
-                                  >
-                                    Reject
                                   </button>
                                 </div>
                               )}

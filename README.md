@@ -80,8 +80,8 @@ Set env vars in Vercel dashboard and deploy. The app works immediately once env 
 
 | Route | Description |
 |-------|-------------|
-| `/` | Home — Team selector + meeting list |
-| `/meeting/[year]` | Live meeting dashboard with present mode |
+| `/` | Home — Team selector + “Enter meeting room” |
+| `/meeting` | Live meeting dashboard |
 | `/admin` | Commissioner-only admin hub |
 | `/constitution` | Constitution browser |
 | `/constitution/[anchor]` | Constitution section detail |
@@ -111,7 +111,7 @@ Set env vars in Vercel dashboard and deploy. The app works immediately once env 
 - Votes are NOT anonymous — visible after tally
 - 8 YES votes required to pass (2/3 of 12)
 - Voting tracked per proposal version
-- Commissioner opens voting → owners vote → commissioner tallies → results locked
+- Commissioner opens voting → owners vote → commissioner tallies
 
 ## Tech Stack
 
