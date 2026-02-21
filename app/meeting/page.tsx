@@ -381,11 +381,11 @@ export default function MeetingOwnerPage() {
                                     a.status === "rejected" ? "bg-red-800 text-red-200" :
                                     "bg-yellow-800 text-yellow-200"
                                   }`}>
-                                    {a.status}
+                                    {a.status === "pending" ? "submitted" : a.status}
                                   </span>
                                 </div>
                               </div>
-                              {isCommissioner && a.status === "pending" && (
+                              {isCommissioner && (a.status === "pending" || a.status === "submitted") && (
                                 <div className="flex gap-2">
                                   <button
                                     onClick={() => handleReviewAmendment(a.id, "accept")}
