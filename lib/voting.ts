@@ -3,7 +3,7 @@ import { getCurrentTeamSession, isCommissionerTeam } from "@/lib/api";
 
 export function normalizeVote(input: string) {
   const normalized = input.trim().toLowerCase();
-  if (normalized === "yes" || normalized === "no" || normalized === "abstain") return normalized;
+  if (normalized === "yes" || normalized === "no") return normalized;
   return null;
 }
 

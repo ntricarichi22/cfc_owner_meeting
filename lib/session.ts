@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-const COOKIE_NAME = "team_session";
+const COOKIE_NAME = "cfc_team_session";
 const encoder = new TextEncoder();
 
 async function getKey(): Promise<CryptoKey> {
@@ -41,6 +41,7 @@ async function verify(payload: string, signature: string): Promise<boolean> {
 }
 
 export interface SessionPayload {
+  session_id?: string;
   owner_id: string;
   team_name: string;
   role: string;
@@ -57,7 +58,6 @@ export async function setSessionCookie(payload: SessionPayload) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
   });
 }
 

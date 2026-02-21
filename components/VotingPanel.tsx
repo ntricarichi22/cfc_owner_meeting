@@ -6,22 +6,18 @@ type VoteResponse = {
   status: "not_open" | "open" | "closed" | "tallied";
   submittedCount?: number;
   myVote?: string | null;
-  totals?: { yes: number; no: number; abstain: number; total: number };
+  totals?: { yes: number; no: number; total: number };
   passed?: boolean | null;
   rollCall?: { team_name: string; team_id: string; vote: string }[];
 };
 
 export default function VotingPanel({
   proposalVersionId,
-  meetingLocked,
   isCommissioner,
-  onMeetingLockChanged,
   presenterMode = false,
 }: {
   proposalVersionId: string | null | undefined;
-  meetingLocked: boolean;
   isCommissioner: boolean;
-  onMeetingLockChanged: (locked: boolean) => void;
   presenterMode?: boolean;
 }) {
   const [data, setData] = useState<VoteResponse>({ status: "not_open" });
@@ -50,7 +46,7 @@ export default function VotingPanel({
     };
   }, [load]);
 
-  const cast = async (vote: "YES" | "NO" | "ABSTAIN") => {
+  const cast = async (vote: "YES" | "NO") => {
     if (!proposalVersionId) return;
     const res = await fetch("/api/votes", {
       method: "POST",
@@ -82,25 +78,10 @@ export default function VotingPanel({
     load();
   };
 
-  const toggleLock = async () => {
-    const res = await fetch("/api/meetings/lock", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ locked: !meetingLocked }),
-    });
-    const body = await res.json().catch(() => null);
-    if (!res.ok) {
-      setMessage(body?.error || "Unable to update lock");
-      return;
-    }
-    onMeetingLockChanged(Boolean(body?.locked));
-  };
-
   return (
     <div className="bg-gray-900 rounded-lg p-5 border border-gray-800 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-400 uppercase">Voting</h3>
-        {meetingLocked && <span className="text-xs text-red-300 bg-red-900/50 px-2 py-1 rounded">Meeting Locked</span>}
       </div>
 
       {message && <p className="text-xs text-blue-300">{message}</p>}
@@ -108,12 +89,11 @@ export default function VotingPanel({
       {data.status === "open" && (
         <>
           <div className="flex gap-2">
-            {(["YES", "NO", "ABSTAIN"] as const).map((choice) => (
+            {(["YES", "NO"] as const).map((choice) => (
               <button
                 key={choice}
                 onClick={() => cast(choice)}
-                disabled={meetingLocked}
-                className="px-3 py-2 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 rounded text-xs font-semibold"
+                className="px-3 py-2 bg-blue-700 hover:bg-blue-600 rounded text-xs font-semibold"
               >
                 {choice}
               </button>
@@ -138,7 +118,7 @@ export default function VotingPanel({
             {data.passed ? "PASSED" : "FAILED"}
           </p>
           <p className={presenterMode ? "text-2xl" : "text-sm"}>
-            YES {data.totals?.yes ?? 0} • NO {data.totals?.no ?? 0} • ABSTAIN {data.totals?.abstain ?? 0}
+            YES {data.totals?.yes ?? 0} • NO {data.totals?.no ?? 0}
           </p>
           <div className="max-h-44 overflow-auto border border-gray-800 rounded p-2 text-xs">
             {(data.rollCall || []).map((vote) => (
@@ -150,12 +130,9 @@ export default function VotingPanel({
 
       {isCommissioner && (
         <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-800">
-          <button onClick={() => runControl("/api/voting/open")} disabled={meetingLocked || data.status === "open"} className="px-3 py-1.5 bg-green-700 hover:bg-green-600 disabled:opacity-40 rounded text-xs">Open</button>
-          <button onClick={() => runControl("/api/voting/close")} disabled={meetingLocked || data.status !== "open"} className="px-3 py-1.5 bg-yellow-700 hover:bg-yellow-600 disabled:opacity-40 rounded text-xs">Close</button>
-          <button onClick={() => runControl("/api/voting/tally")} disabled={meetingLocked || data.status !== "closed"} className="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 rounded text-xs">Tally</button>
-          <button onClick={toggleLock} className="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded text-xs">
-            {meetingLocked ? "Unlock Meeting" : "Lock Meeting"}
-          </button>
+          <button onClick={() => runControl("/api/voting/open")} disabled={data.status === "open"} className="px-3 py-1.5 bg-green-700 hover:bg-green-600 disabled:opacity-40 rounded text-xs">Open</button>
+          <button onClick={() => runControl("/api/voting/close")} disabled={data.status !== "open"} className="px-3 py-1.5 bg-yellow-700 hover:bg-yellow-600 disabled:opacity-40 rounded text-xs">Close</button>
+          <button onClick={() => runControl("/api/voting/tally")} disabled={data.status !== "closed"} className="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 rounded text-xs">Tally</button>
         </div>
       )}
     </div>

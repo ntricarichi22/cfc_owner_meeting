@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { setSessionCookie, clearSession } from "@/lib/session";
+import { setSessionCookie, clearSession, getSession } from "@/lib/session";
 
 const SESSION_CLAIM_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -39,9 +39,11 @@ export async function POST(req: NextRequest) {
   }
 
   // Insert a new team_sessions row
-  const { error: insertError } = await sb
+  const { data: createdSession, error: insertError } = await sb
     .from("team_sessions")
-    .insert({ team_id: teamId, team_name: teamName });
+    .insert({ team_id: teamId, team_name: teamName })
+    .select("id")
+    .single();
 
   if (insertError) {
     return NextResponse.json(
@@ -51,6 +53,7 @@ export async function POST(req: NextRequest) {
   }
 
   await setSessionCookie({
+    session_id: createdSession.id,
     owner_id: teamId,
     team_name: teamName,
     role: "owner",
@@ -60,7 +63,21 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+export async function GET() {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  return NextResponse.json(session);
+}
+
 export async function DELETE() {
+  const session = await getSession();
+  if (session?.session_id) {
+    const sb = getSupabaseServer();
+    await sb.from("team_sessions").delete().eq("id", session.session_id);
+  } else if (session?.owner_id) {
+    const sb = getSupabaseServer();
+    await sb.from("team_sessions").delete().eq("team_id", session.owner_id);
+  }
   await clearSession();
   return NextResponse.json({ ok: true });
 }
