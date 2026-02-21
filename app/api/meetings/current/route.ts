@@ -10,7 +10,7 @@ export async function GET() {
   const { data, error } = await sb
     .from("meetings")
     .select("*")
-    .eq("status", "live")
+    .eq("status", "active")
     .maybeSingle();
 
   if (error) {
