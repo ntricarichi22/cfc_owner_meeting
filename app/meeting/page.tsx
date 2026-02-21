@@ -401,140 +401,141 @@ export default function MeetingOwnerPage() {
               </header>
 
               {currentItem?.category === "proposal" ? (
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-                  <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
-                    <h3 className="text-xs uppercase tracking-[0.2em] text-white/40">Summary</h3>
-                    <p className="text-sm text-white/80 whitespace-pre-wrap">{summaryText || "No summary provided."}</p>
-                    <div>
-                      <h4 className="text-xs uppercase tracking-[0.2em] text-white/40 mb-2">Constitution Links</h4>
-                      {constitutionLinks.length === 0 ? (
-                        <p className="text-xs text-white/40">No linked sections.</p>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {constitutionLinks.map((link) => (
-                            <span key={link} className="text-xs px-2 py-1 rounded-md border border-blue-400/30 bg-blue-500/10 text-blue-200">{link}</span>
-                          ))}
+                <div className="space-y-4">
+                  <header className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-white/90 truncate">Proposal #{currentSlide} — {currentItem?.title || "Untitled proposal"}</p>
+                    <p className="text-xs text-white/50">Version {activeVersion?.version_number ?? "—"} · Effective {proposal?.effective_date || "TBD"}</p>
+                  </header>
+
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
+                      <p className="text-sm text-white/80 whitespace-pre-wrap">{summaryText || "No summary provided."}</p>
+                      <div className="rounded-xl border border-white/10 bg-black/30 p-4 max-h-80 overflow-auto text-sm whitespace-pre-wrap text-white/80">
+                        {activeVersion?.full_text || "No proposal text provided."}
+                      </div>
+                    </article>
+
+                    <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs uppercase tracking-[0.2em] text-white/40">Working Notes</p>
+                        {canSubmitAmendment && (
+                          <button
+                            onClick={() => setShowAmendmentForm((v) => !v)}
+                            className="text-xs px-2.5 py-1 rounded border border-white/20 hover:border-white/40"
+                          >
+                            {showAmendmentForm ? "Close" : "Add"}
+                          </button>
+                        )}
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-white/50 mb-2">Linked constitution sections</p>
+                        {constitutionLinks.length === 0 ? (
+                          <p className="text-xs text-white/40">No linked sections.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {constitutionLinks.map((link) => (
+                              <span key={link} className="text-xs px-2 py-1 rounded-md border border-blue-400/30 bg-blue-500/10 text-blue-200">{link}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {isCommissioner && proposal && (
+                        <div className="space-y-2">
+                          <label className="text-xs text-white/50 block">Edit linked sections (comma-separated)</label>
+                          <input
+                            value={constitutionLinksInput}
+                            onChange={(e) => setConstitutionLinksInput(e.target.value)}
+                            className="w-full bg-black/40 border border-white/15 rounded p-2 text-sm text-white"
+                            placeholder="3.2, 4.1(b)"
+                          />
+                          <button
+                            onClick={handleSaveConstitutionLinks}
+                            disabled={savingConstitutionLinks}
+                            className="text-xs px-3 py-1.5 rounded border border-white/20 hover:border-white/40 disabled:opacity-40"
+                          >
+                            {savingConstitutionLinks ? "Saving..." : "Save links"}
+                          </button>
                         </div>
                       )}
-                    </div>
-                    {isCommissioner && proposal && (
-                      <div className="space-y-2">
-                        <label className="text-xs text-white/50 block">Edit constitution links (comma-separated)</label>
-                        <input
-                          value={constitutionLinksInput}
-                          onChange={(e) => setConstitutionLinksInput(e.target.value)}
-                          className="w-full bg-black/40 border border-white/15 rounded p-2 text-sm text-white"
-                          placeholder="3.2, 4.1(b)"
-                        />
-                        <button
-                          onClick={handleSaveConstitutionLinks}
-                          disabled={savingConstitutionLinks}
-                          className="text-xs px-3 py-1.5 rounded border border-white/20 hover:border-white/40 disabled:opacity-40"
-                        >
-                          {savingConstitutionLinks ? "Saving..." : "Save links"}
-                        </button>
-                      </div>
-                    )}
-                  </article>
 
-                  <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
-                    <h3 className="text-xs uppercase tracking-[0.2em] text-white/40">Proposal Text</h3>
-                    <p className="text-xs text-white/50">Version {activeVersion?.version_number ?? "—"}</p>
-                    <div className="rounded-xl border border-white/10 bg-black/30 p-4 max-h-80 overflow-auto text-sm whitespace-pre-wrap text-white/80">
-                      {activeVersion?.full_text || "No proposal text provided."}
-                    </div>
-                    <p className="text-xs text-white/50">Effective date: {proposal?.effective_date || "TBD"}</p>
-                    <VotingPanel proposalVersionId={activeVersion?.id} isCommissioner={isCommissioner} />
-                  </article>
+                      {amendmentSuccess && <p className="text-xs text-green-300">{amendmentSuccess}</p>}
 
-                  <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xs uppercase tracking-[0.2em] text-white/40">Amendments & References</h3>
-                      {canSubmitAmendment && (
-                        <button
-                          onClick={() => setShowAmendmentForm((v) => !v)}
-                          className="text-xs px-2.5 py-1 rounded border border-white/20 hover:border-white/40"
-                        >
-                          {showAmendmentForm ? "Close" : "Add"}
-                        </button>
-                      )}
-                    </div>
-
-                    {amendmentSuccess && <p className="text-xs text-green-300">{amendmentSuccess}</p>}
-
-                    {canSubmitAmendment && showAmendmentForm && (
-                      <div className="space-y-2 rounded-lg border border-white/10 bg-black/30 p-3">
-                        <textarea
-                          value={amendText}
-                          onChange={(e) => setAmendText(e.target.value)}
-                          placeholder="Suggested text"
-                          className="w-full bg-black/50 border border-white/15 rounded p-2 text-sm min-h-[72px]"
-                        />
-                        <textarea
-                          value={amendRationale}
-                          onChange={(e) => setAmendRationale(e.target.value)}
-                          placeholder="Rationale"
-                          className="w-full bg-black/50 border border-white/15 rounded p-2 text-sm"
-                        />
-                        <button
-                          onClick={handleSubmitAmendment}
-                          disabled={!amendText.trim() || submittingAmendment}
-                          className="text-xs px-3 py-1.5 rounded border border-white/20 hover:border-white/40 disabled:opacity-40"
-                        >
-                          {submittingAmendment ? "Submitting..." : "Submit amendment"}
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="space-y-2 max-h-48 overflow-auto">
-                      {amendments.length === 0 ? (
-                        <p className="text-xs text-white/40">No amendments submitted.</p>
-                      ) : (
-                        amendments.map((a) => (
-                          <div key={a.id} className="rounded-lg border border-white/10 bg-black/30 p-2.5">
-                            <p className="text-xs text-white/80 whitespace-pre-wrap">{a.proposed_text}</p>
-                            {a.rationale && <p className="text-[11px] text-white/50 mt-1">Rationale: {a.rationale}</p>}
-                            <div className="mt-1 flex items-center justify-between">
-                              <span className="text-[11px] text-white/40">{a.submitted_by_team || "Unknown team"}</span>
-                              {isCommissioner && (a.status === "pending" || a.status === "submitted") && (
-                                <button
-                                  onClick={() => handleReviewAmendment(a.id)}
-                                  className="text-[11px] px-2 py-0.5 rounded border border-white/20 hover:border-white/40"
-                                >
-                                  Accept
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    {copyMessage && <p className="text-xs text-green-300">{copyMessage}</p>}
-                    {constitutionSections.length > MAX_VISIBLE_SECTIONS && (
-                      <p className="text-[11px] text-white/40">Showing first {MAX_VISIBLE_SECTIONS} sections.</p>
-                    )}
-                    <div className="space-y-2 max-h-36 overflow-auto">
-                      {constitutionSections.slice(0, MAX_VISIBLE_SECTIONS).map((section) => {
-                        const fragment = `#${constitutionAnchorId(section.section_key)}`;
-                        return (
+                      {canSubmitAmendment && showAmendmentForm && (
+                        <div className="space-y-2 rounded-lg border border-white/10 bg-black/30 p-3">
+                          <textarea
+                            value={amendText}
+                            onChange={(e) => setAmendText(e.target.value)}
+                            placeholder="Suggested text"
+                            className="w-full bg-black/50 border border-white/15 rounded p-2 text-sm min-h-[72px]"
+                          />
+                          <textarea
+                            value={amendRationale}
+                            onChange={(e) => setAmendRationale(e.target.value)}
+                            placeholder="Rationale"
+                            className="w-full bg-black/50 border border-white/15 rounded p-2 text-sm"
+                          />
                           <button
-                            id={constitutionAnchorId(section.section_key)}
-                            key={section.id}
-                            onClick={async () => {
-                              const deepLink = `${window.location.origin}/meeting${fragment}`;
-                              await navigator.clipboard.writeText(deepLink).catch(() => {});
-                              setCopyMessage(`Copied ${fragment}`);
-                            }}
-                            className="w-full text-left rounded border border-white/10 bg-black/30 p-2 hover:border-white/30"
+                            onClick={handleSubmitAmendment}
+                            disabled={!amendText.trim() || submittingAmendment}
+                            className="text-xs px-3 py-1.5 rounded border border-white/20 hover:border-white/40 disabled:opacity-40"
                           >
-                            <p className="text-[11px] text-blue-200">{section.section_key}</p>
-                            <p className="text-xs text-white/70 truncate">{section.title}</p>
+                            {submittingAmendment ? "Submitting..." : "Submit amendment"}
                           </button>
-                        );
-                      })}
-                    </div>
-                  </article>
+                        </div>
+                      )}
+
+                      <div className="space-y-2 max-h-48 overflow-auto">
+                        {amendments.length === 0 ? (
+                          <p className="text-xs text-white/40">No amendments submitted.</p>
+                        ) : (
+                          amendments.map((a) => (
+                            <div key={a.id} className="rounded-lg border border-white/10 bg-black/30 p-2.5">
+                              <p className="text-xs text-white/80 whitespace-pre-wrap">{a.proposed_text}</p>
+                              {a.rationale && <p className="text-[11px] text-white/50 mt-1">Rationale: {a.rationale}</p>}
+                              <div className="mt-1 flex items-center justify-between">
+                                <span className="text-[11px] text-white/40">{a.submitted_by_team || "Unknown team"}</span>
+                                {isCommissioner && (a.status === "pending" || a.status === "submitted") && (
+                                  <button
+                                    onClick={() => handleReviewAmendment(a.id)}
+                                    className="text-[11px] px-2 py-0.5 rounded border border-white/20 hover:border-white/40"
+                                  >
+                                    Accept
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {copyMessage && <p className="text-xs text-green-300">{copyMessage}</p>}
+                      {constitutionSections.length > MAX_VISIBLE_SECTIONS && (
+                        <p className="text-[11px] text-white/40">Showing first {MAX_VISIBLE_SECTIONS} sections.</p>
+                      )}
+                      <div className="space-y-2 max-h-36 overflow-auto">
+                        {constitutionSections.slice(0, MAX_VISIBLE_SECTIONS).map((section) => {
+                          const fragment = `#${constitutionAnchorId(section.section_key)}`;
+                          return (
+                            <button
+                              id={constitutionAnchorId(section.section_key)}
+                              key={section.id}
+                              onClick={async () => {
+                                const deepLink = `${window.location.origin}/meeting${fragment}`;
+                                await navigator.clipboard.writeText(deepLink).catch(() => {});
+                                setCopyMessage(`Copied ${fragment}`);
+                              }}
+                              className="w-full text-left rounded border border-white/10 bg-black/30 p-2 hover:border-white/30"
+                            >
+                              <p className="text-[11px] text-blue-200">{section.section_key}</p>
+                              <p className="text-xs text-white/70 truncate">{section.title}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </article>
+                  </div>
                 </div>
               ) : (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
