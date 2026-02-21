@@ -403,8 +403,8 @@ export default function MeetingOwnerPage() {
               {currentItem?.category === "proposal" ? (
                 <div className="space-y-4">
                   <header className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-white/90 truncate">Proposal #{currentSlide} — {currentItem?.title || "Untitled proposal"}</p>
-                    <p className="text-xs text-white/50">Version {activeVersion?.version_number ?? "—"} · Effective {proposal?.effective_date || "TBD"}</p>
+                    <p className="text-sm font-medium text-white/90 truncate" title={currentItem?.title || "Untitled proposal"}>Proposal #{currentSlide} — {currentItem?.title || "Untitled proposal"}</p>
+                    <p className="text-xs text-white/50">Version {activeVersion?.version_number ?? "—"} | Effective {proposal?.effective_date || "TBD"}</p>
                   </header>
 
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
