@@ -395,7 +395,9 @@ export default function MeetingOwnerPage() {
           <section className="h-full overflow-auto px-8 py-8 md:px-14 md:py-12">
             <div className="max-w-7xl mx-auto space-y-6">
               <header className="border border-white/10 bg-white/[0.03] rounded-2xl px-4 py-2.5">
-                <p className="text-sm font-medium tracking-[0.04em] text-white/80">Proposal #{currentSlide}</p>
+                <p className="text-sm font-medium tracking-[0.04em] text-white/80">
+                  {currentItem?.category === "proposal" ? "Proposal" : "Agenda Item"} #{currentSlide}
+                </p>
               </header>
 
               {currentItem?.category === "proposal" ? (
