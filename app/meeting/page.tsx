@@ -394,17 +394,37 @@ export default function MeetingOwnerPage() {
         ) : (
           <section className="h-full overflow-auto px-8 py-8 md:px-14 md:py-12">
             <div className="max-w-7xl mx-auto space-y-6">
-              <header className="border border-white/10 bg-white/[0.03] rounded-2xl px-4 py-2.5">
-                <p className="text-sm font-medium tracking-[0.04em] text-white/80">
-                  {currentItem?.category === "proposal" ? "Proposal" : "Agenda Item"} #{currentSlide}
-                </p>
-              </header>
 
               {currentItem?.category === "proposal" ? (
                 <div className="space-y-4">
-                  <header className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-white/90 truncate" title={currentItem?.title || "Untitled proposal"}>Proposal #{currentSlide} — {currentItem?.title || "Untitled proposal"}</p>
-                    <p className="text-xs text-white/50">Version {activeVersion?.version_number ?? "—"} | Effective {proposal?.effective_date || "TBD"}</p>
+                  <header className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-5 min-h-[20vh] flex flex-col justify-between">
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">
+                      Proposal #{currentSlide}: {currentItem?.title || "Untitled Proposal"}
+                    </h1>
+                    <div className="flex flex-wrap items-center justify-between gap-4 mt-4">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9]">
+                          Proposed by: Commissioner
+                        </span>
+                        <span className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9]">
+                          Effective Date: {proposal?.effective_date || "TBD"}
+                        </span>
+                        <a
+                          href="/constitution"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
+                        >
+                          Constitution ↗
+                        </a>
+                      </div>
+                      <button
+                        onClick={() => setShowVotingModal(true)}
+                        className="rounded-lg bg-[#0ea5e9] px-6 py-3 text-base font-semibold text-white hover:bg-[#0ea5e9]/90 transition-colors"
+                      >
+                        Start Voting
+                      </button>
+                    </div>
                   </header>
 
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
