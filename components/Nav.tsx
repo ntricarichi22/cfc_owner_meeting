@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 interface NavProps {
   teamName?: string;
@@ -9,56 +10,41 @@ interface NavProps {
 }
 
 export default function Nav({ teamName, isCommissioner, onLogout }: NavProps) {
+  const pathname = usePathname();
+  const links = [
+    { href: "/meeting", label: "Current Meeting", active: pathname.startsWith("/meeting") },
+    { href: "/past-meetings", label: "Meeting History", active: pathname.startsWith("/past-meetings") },
+    { href: "/constitution", label: "Constitution", active: pathname.startsWith("/constitution") },
+  ];
+
   return (
-    <nav className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-6">
-        <Link href="/" className="text-xl font-bold text-white hover:text-gray-300">
+    <nav className="bg-black/80 backdrop-blur border-b border-white/10 px-6 py-4 flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        <Link href="/" className="text-lg font-semibold text-white tracking-wide hover:text-white/80">
           CFC Owners Meeting
         </Link>
-        {teamName && (
-          <>
-            <Link href="/constitution" className="text-gray-400 hover:text-white text-sm">
-              Constitution
-            </Link>
-            <Link href="/history" className="text-gray-400 hover:text-white text-sm">
-              History
-            </Link>
-            <Link href="/past-meetings" className="text-gray-400 hover:text-white text-sm">
-              Past Meetings
-            </Link>
-            {isCommissioner && (
-              <>
-                <Link href="/meeting/minutes" className="text-yellow-400 hover:text-yellow-300 text-sm">
-                  Minutes
-                </Link>
-                <Link href="/admin" className="text-yellow-400 hover:text-yellow-300 text-sm">
-                  Admin
-                </Link>
-              </>
-            )}
-          </>
+        {teamName && <span className="text-xs text-white/60">{teamName}{isCommissioner ? " • Commissioner" : ""}</span>}
+      </div>
+
+      <div className="flex items-center gap-5 text-sm">
+        {links.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className={`pb-0.5 transition-colors ${link.active ? "text-white border-b border-white/70" : "text-white/60 border-b border-transparent hover:text-white"}`}
+          >
+            {link.label}
+          </Link>
+        ))}
+        {teamName && onLogout && (
+          <button
+            onClick={onLogout}
+            className="text-xs text-white/50 hover:text-white transition-colors"
+          >
+            Switch Team
+          </button>
         )}
       </div>
-      {teamName && (
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-400">
-            {teamName}
-            {isCommissioner && (
-              <span className="ml-2 px-2 py-0.5 bg-yellow-600 text-black text-xs rounded-full font-semibold">
-                Commissioner
-              </span>
-            )}
-          </span>
-          {onLogout && (
-            <button
-              onClick={onLogout}
-              className="text-xs text-gray-500 hover:text-white border border-gray-700 px-2 py-1 rounded"
-            >
-              Switch Team
-            </button>
-          )}
-        </div>
-      )}
     </nav>
   );
 }
