@@ -16,6 +16,7 @@ import type {
 } from "@/lib/types";
 
 const CONSTITUTION_LINKS_PREFIX = "[CONSTITUTION_LINKS:";
+const MAX_VISIBLE_SECTIONS = 24;
 
 function parseConstitutionLinks(summary: string | null | undefined) {
   if (!summary) return [];
@@ -404,7 +405,9 @@ export default function MeetingOwnerPage() {
             <div className="max-w-7xl mx-auto space-y-6">
               <header className="border border-white/10 bg-white/[0.03] rounded-2xl p-6">
                 <p className="text-xs uppercase tracking-[0.24em] text-white/40">{meeting.title}</p>
-                <h2 className="text-4xl md:text-6xl font-semibold tracking-[0.05em] mt-2">PROPOSAL #{currentSlide}</h2>
+                <h2 className="text-4xl md:text-6xl font-semibold tracking-[0.05em] mt-2">
+                  {(currentItem?.category === "proposal" ? "PROPOSAL" : "AGENDA ITEM")} #{currentSlide}
+                </h2>
                 <p className="text-lg text-white/70 mt-3">{currentItem?.title || "Untitled agenda item"}</p>
                 <div className="flex flex-wrap gap-2 mt-5">
                   {chipValues.map((chip) => (
@@ -526,8 +529,11 @@ export default function MeetingOwnerPage() {
                     </div>
 
                     {copyMessage && <p className="text-xs text-green-300">{copyMessage}</p>}
+                    {constitutionSections.length > MAX_VISIBLE_SECTIONS && (
+                      <p className="text-[11px] text-white/40">Showing first {MAX_VISIBLE_SECTIONS} sections.</p>
+                    )}
                     <div className="space-y-2 max-h-36 overflow-auto">
-                      {constitutionSections.slice(0, 24).map((section) => {
+                      {constitutionSections.slice(0, MAX_VISIBLE_SECTIONS).map((section) => {
                         const fragment = `#${constitutionAnchorId(section.section_key)}`;
                         return (
                           <button
