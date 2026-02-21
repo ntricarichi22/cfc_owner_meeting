@@ -1,26 +1,24 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getCurrentTeamSession, jsonError } from "@/lib/api";
 import { getSupabaseServer } from "@/lib/supabase-server";
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await getCurrentTeamSession().catch(() => null);
+  if (!auth) return jsonError(401, "Unauthorized");
 
   const sb = getSupabaseServer();
   const { data, error } = await sb
     .from("meetings")
     .select("*")
-    .eq("status", "active")
+    .eq("status", "live")
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: "Supabase error", details: error.message, code: error.code }, { status: 500 });
+    return jsonError(500, "Supabase error", error.message, error.code);
   }
 
   if (!data) {
-    return NextResponse.json({ error: "No active meeting" }, { status: 404 });
+    return jsonError(404, "No live meeting");
   }
 
   return NextResponse.json(data);

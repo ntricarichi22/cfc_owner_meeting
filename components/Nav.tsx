@@ -23,10 +23,18 @@ export default function Nav({ teamName, isCommissioner, onLogout }: NavProps) {
             <Link href="/history" className="text-gray-400 hover:text-white text-sm">
               History
             </Link>
+            <Link href="/past-meetings" className="text-gray-400 hover:text-white text-sm">
+              Past Meetings
+            </Link>
             {isCommissioner && (
-              <Link href="/admin" className="text-yellow-400 hover:text-yellow-300 text-sm">
-                Admin
-              </Link>
+              <>
+                <Link href="/meeting/minutes" className="text-yellow-400 hover:text-yellow-300 text-sm">
+                  Minutes
+                </Link>
+                <Link href="/admin" className="text-yellow-400 hover:text-yellow-300 text-sm">
+                  Admin
+                </Link>
+              </>
             )}
           </>
         )}

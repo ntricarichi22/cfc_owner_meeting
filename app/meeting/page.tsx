@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
+import VotingPanel from "@/components/VotingPanel";
+import { COMMISSIONER_TEAM_NAME } from "@/lib/constants";
 import type {
   Meeting,
   AgendaItem,
@@ -28,7 +30,7 @@ export default function MeetingOwnerPage() {
   const [amendmentSuccess, setAmendmentSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [meetingNotFound, setMeetingNotFound] = useState(false);
-  const canSubmitAmendment = session?.team_name === "Virginia Founders";
+  const canSubmitAmendment = session?.team_name === COMMISSIONER_TEAM_NAME;
 
   const selectedItem = items.find((i) => i.id === selectedItemId) ?? null;
   const selectedIdx = items.findIndex((i) => i.id === selectedItemId);
@@ -176,6 +178,17 @@ export default function MeetingOwnerPage() {
     }
   };
 
+  const handleToggleMeetingLock = async () => {
+    if (!meeting) return;
+    const res = await fetch("/api/meetings/lock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locked: !meeting.locked }),
+    });
+    if (!res.ok) return;
+    setMeeting((prev) => (prev ? { ...prev, locked: !prev.locked } : prev));
+  };
+
   if (sessionLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -222,13 +235,25 @@ export default function MeetingOwnerPage() {
 
       {/* Meeting header */}
       <div className="bg-gray-900 border-b border-gray-800 px-6 py-4">
-        <h1 className="text-2xl font-bold">{meeting.title}</h1>
-        <p className="text-sm text-gray-400">
-          {meeting.year} •{" "}
-          <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-600 text-white">
-            LIVE
-          </span>
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">{meeting.title}</h1>
+            <p className="text-sm text-gray-400">
+              {meeting.year} •{" "}
+              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-600 text-white">
+                LIVE
+              </span>
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {meeting.locked && <span className="text-xs text-red-300 bg-red-900/50 px-2 py-1 rounded">Meeting Locked</span>}
+            {isCommissioner && (
+              <button onClick={handleToggleMeetingLock} className="text-xs px-3 py-1 rounded bg-red-700 hover:bg-red-600">
+                {meeting.locked ? "Unlock Meeting" : "Lock Meeting"}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="flex h-[calc(100vh-8rem)]">
@@ -319,6 +344,15 @@ export default function MeetingOwnerPage() {
                         {activeVersion.full_text || <span className="text-gray-500 italic">No text provided.</span>}
                       </div>
                     </div>
+                  )}
+
+                  {activeVersion && (
+                    <VotingPanel
+                      proposalVersionId={activeVersion.id}
+                      meetingLocked={meeting.locked}
+                      isCommissioner={isCommissioner}
+                      onMeetingLockChanged={(locked) => setMeeting((prev) => (prev ? { ...prev, locked } : prev))}
+                    />
                   )}
 
                   <div className="bg-gray-900 rounded-lg p-6 border border-gray-800 space-y-4">

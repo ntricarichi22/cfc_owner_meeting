@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { COMMISSIONER_TEAM_NAME } from "@/lib/constants";
 
 interface SessionData {
   owner_id: string;
@@ -62,7 +63,7 @@ export function useSession() {
     localStorage.removeItem("cfc_session");
   }, []);
 
-  return { session, loading, selectTeam, logout, isCommissioner: session?.role === "commissioner" };
+  return { session, loading, selectTeam, logout, isCommissioner: session?.team_name === COMMISSIONER_TEAM_NAME };
 }
 
 export function TeamSelector({ owners, onSelect }: { owners: Owner[]; onSelect: (name: string) => void }) {
