@@ -12,8 +12,28 @@ async function requireCommissionerSession() {
 }
 
 function buildRationale(pros: string | null | undefined, cons: string | null | undefined): string {
-  const prosLines = (pros || "").split("\n").map((l) => l.trim()).filter(Boolean);
-  const consLines = (cons || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  // Handle both HTML content (from rich text editor) and plain text (legacy)
+  const isHtml = (s: string) => /<[a-z][\s\S]*>/i.test(s);
+  const prosStr = pros || "";
+  const consStr = cons || "";
+
+  if (isHtml(prosStr) || isHtml(consStr)) {
+    // For HTML content, store as-is with markers
+    const lines: string[] = [];
+    if (prosStr.replace(/<[^>]*>/g, "").trim()) {
+      lines.push("[PROS]");
+      lines.push(prosStr);
+    }
+    if (consStr.replace(/<[^>]*>/g, "").trim()) {
+      lines.push("[CONS]");
+      lines.push(consStr);
+    }
+    return lines.join("\n");
+  }
+
+  // Plain text: split by newlines and format as before
+  const prosLines = prosStr.split("\n").map((l) => l.trim()).filter(Boolean);
+  const consLines = consStr.split("\n").map((l) => l.trim()).filter(Boolean);
   if (prosLines.length === 0 && consLines.length === 0) return "";
   const lines: string[] = [];
   lines.push("[PROS]");

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSession } from "@/components/TeamSelector";
 import Nav from "@/components/Nav";
 import type { Meeting, AgendaItem, Proposal, ProposalVersion } from "@/lib/types";
+import RichTextEditor from "@/components/RichTextEditor";
 
 /* ---------- types ---------- */
 type ProposalWithVersions = Proposal & { proposal_versions?: ProposalVersion[] };
@@ -242,6 +243,12 @@ export default function MeetingBuilderPage() {
   };
 
   /* ---------- save proposal ---------- */
+  const cleanRichText = (html: string | null | undefined): string | null => {
+    if (!html) return null;
+    const stripped = html.replace(/<[^>]*>/g, "").trim();
+    return stripped.length > 0 ? html : null;
+  };
+
   const handleSaveProposal = async () => {
     if (!meeting || !formData.title.trim()) return;
     setSaving(true);
@@ -259,14 +266,14 @@ export default function MeetingBuilderPage() {
             proposed_by: formData.proposed_by || null,
             effective_date: formData.effective_date || null,
             article_sections: formData.article_sections,
-            summary: formData.summary || null,
-            pros: formData.pros || null,
-            cons: formData.cons || null,
+            summary: cleanRichText(formData.summary),
+            pros: cleanRichText(formData.pros),
+            cons: cleanRichText(formData.cons),
           }),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || "Failed to update proposal");
+          throw new Error(err.details ? `${err.error}: ${err.details}` : (err.error || "Failed to update proposal"));
         }
         setSuccess("Proposal updated");
       } else {
@@ -283,14 +290,14 @@ export default function MeetingBuilderPage() {
             proposed_by: formData.proposed_by || null,
             effective_date: formData.effective_date || null,
             article_sections: formData.article_sections,
-            summary: formData.summary || null,
-            pros: formData.pros || null,
-            cons: formData.cons || null,
+            summary: cleanRichText(formData.summary),
+            pros: cleanRichText(formData.pros),
+            cons: cleanRichText(formData.cons),
           }),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || "Failed to create proposal");
+          throw new Error(err.details ? `${err.error}: ${err.details}` : (err.error || "Failed to create proposal"));
         }
         setSuccess("Proposal created and is now live");
       }
@@ -533,8 +540,8 @@ export default function MeetingBuilderPage() {
                     onChange={(e) => updateField("proposal_type", e.target.value)}
                     className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-white"
                   >
-                    <option value="proposal">Proposal</option>
-                    <option value="admin">Admin</option>
+                    <option value="proposal" className="text-black bg-white">Proposal</option>
+                    <option value="admin" className="text-black bg-white">Admin</option>
                   </select>
                 </div>
               </div>
@@ -548,9 +555,9 @@ export default function MeetingBuilderPage() {
                     onChange={(e) => updateField("proposed_by", e.target.value)}
                     className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-white"
                   >
-                    <option value="">Select team...</option>
+                    <option value="" className="text-black bg-white">Select team...</option>
                     {teams.map((t) => (
-                      <option key={t.teamId} value={t.teamName}>
+                      <option key={t.teamId} value={t.teamName} className="text-black bg-white">
                         {t.teamName}
                       </option>
                     ))}
@@ -564,7 +571,7 @@ export default function MeetingBuilderPage() {
                     className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-white"
                   >
                     {EFFECTIVE_DATE_OPTIONS.map((d) => (
-                      <option key={d} value={d}>{d}</option>
+                      <option key={d} value={d} className="text-black bg-white">{d}</option>
                     ))}
                   </select>
                 </div>
@@ -608,11 +615,9 @@ export default function MeetingBuilderPage() {
               {/* Details */}
               <div>
                 <label className="text-xs text-white/50 block mb-1">Details</label>
-                <textarea
+                <RichTextEditor
                   value={formData.summary}
-                  onChange={(e) => updateField("summary", e.target.value)}
-                  rows={4}
-                  className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30"
+                  onChange={(val) => updateField("summary", val)}
                   placeholder="Describe the proposal details..."
                 />
               </div>
@@ -620,23 +625,19 @@ export default function MeetingBuilderPage() {
               {/* Pros & Cons (side by side) */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-white/50 block mb-1">Pros (one per line)</label>
-                  <textarea
+                  <label className="text-xs text-white/50 block mb-1">Pros</label>
+                  <RichTextEditor
                     value={formData.pros}
-                    onChange={(e) => updateField("pros", e.target.value)}
-                    rows={4}
-                    className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30"
-                    placeholder="Enter pros, one per line..."
+                    onChange={(val) => updateField("pros", val)}
+                    placeholder="Enter pros..."
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-white/50 block mb-1">Cons (one per line)</label>
-                  <textarea
+                  <label className="text-xs text-white/50 block mb-1">Cons</label>
+                  <RichTextEditor
                     value={formData.cons}
-                    onChange={(e) => updateField("cons", e.target.value)}
-                    rows={4}
-                    className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30"
-                    placeholder="Enter cons, one per line..."
+                    onChange={(val) => updateField("cons", val)}
+                    placeholder="Enter cons..."
                   />
                 </div>
               </div>
