@@ -2,25 +2,25 @@
 
 import { useEffect } from "react";
 
-function releaseSession() {
-  try {
-    const url = `${window.location.origin}/api/session/release`;
-    const sent = navigator.sendBeacon?.(url);
-    if (!sent) {
-      void fetch("/api/session/release", { method: "POST", keepalive: true });
-    }
-  } catch {
-    void fetch("/api/session/release", { method: "POST", keepalive: true });
-  }
-}
+const HEARTBEAT_INTERVAL_MS = 15_000;
 
-export default function SessionAutoRelease() {
+export default function SessionHeartbeat() {
   useEffect(() => {
-    window.addEventListener("pagehide", releaseSession);
-    window.addEventListener("beforeunload", releaseSession);
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    function ping() {
+      // Only ping if the session cookie exists (non-httpOnly name check
+      // isn't possible, so we just fire the request; the server is a no-op
+      // when no session cookie is present).
+      fetch("/api/session/ping", { method: "POST" }).catch(() => {});
+    }
+
+    // Initial ping on mount, then every 15 seconds
+    ping();
+    timer = setInterval(ping, HEARTBEAT_INTERVAL_MS);
+
     return () => {
-      window.removeEventListener("pagehide", releaseSession);
-      window.removeEventListener("beforeunload", releaseSession);
+      if (timer) clearInterval(timer);
     };
   }, []);
 

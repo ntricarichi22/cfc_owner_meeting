@@ -17,6 +17,7 @@ export default function Home() {
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [claimedTeamIds, setClaimedTeamIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch("/api/teams")
@@ -39,6 +40,20 @@ export default function Home() {
       })
       .finally(() => setTeamsLoading(false));
   }, []);
+
+  // Fetch claimed teams so we can disable them in the dropdown
+  useEffect(() => {
+    if (session) return; // Already logged in, no need to poll claimed teams
+    function fetchClaimed() {
+      fetch("/api/session/claimed")
+        .then((r) => r.json())
+        .then((ids: string[]) => setClaimedTeamIds(new Set(ids)))
+        .catch(() => {});
+    }
+    fetchClaimed();
+    const timer = setInterval(fetchClaimed, 10_000);
+    return () => clearInterval(timer);
+  }, [session]);
 
   const handleEnterMeeting = async () => {
     try {
@@ -92,8 +107,12 @@ export default function Home() {
                 >
                   <option value="">-- Choose Team --</option>
                   {teams.map((t) => (
-                    <option key={t.teamId} value={t.teamId}>
-                      {t.teamName}
+                    <option
+                      key={t.teamId}
+                      value={t.teamId}
+                      disabled={claimedTeamIds.has(t.teamId)}
+                    >
+                      {t.teamName}{claimedTeamIds.has(t.teamId) ? " (in use)" : ""}
                     </option>
                   ))}
                 </select>
