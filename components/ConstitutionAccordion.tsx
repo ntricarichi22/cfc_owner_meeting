@@ -81,7 +81,7 @@ export default function ConstitutionAccordion({ articles }: { articles: Article[
 
                       {secOpen && (
                         <div
-                          className="px-6 py-4 text-sm text-gray-300 prose prose-invert max-w-none constitution-body"
+                          className="px-6 py-4 text-sm text-gray-300 prose prose-invert max-w-none prose-p:my-4 prose-li:my-1 prose-h2:mt-6 prose-h2:mb-2 prose-h3:mt-4 prose-h3:mb-2 leading-relaxed constitution-body"
                           dangerouslySetInnerHTML={{
                             __html: DOMPurify.sanitize(section.body || ""),
                           }}
