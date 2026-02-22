@@ -18,6 +18,9 @@ interface Article {
   sections: Section[];
 }
 
+/** Delay (ms) to let React re-render expanded accordions before scrolling */
+const SCROLL_DELAY_MS = 50;
+
 function findByHash(articles: Article[], hash: string) {
   if (!hash) return null;
   for (const article of articles) {
@@ -26,6 +29,13 @@ function findByHash(articles: Article[], hash: string) {
     }
   }
   return null;
+}
+
+function scrollToHash(hash: string) {
+  setTimeout(() => {
+    const el = document.getElementById(hash);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, SCROLL_DELAY_MS);
 }
 
 export default function ConstitutionAccordion({ articles }: { articles: Article[] }) {
@@ -63,21 +73,14 @@ export default function ConstitutionAccordion({ articles }: { articles: Article[
     if (!match) return;
     setOpenArticles((prev) => new Set(prev).add(match.articleId));
     setOpenSections((prev) => new Set(prev).add(match.sectionId));
-    // Wait for React to re-render the expanded accordions before scrolling
-    setTimeout(() => {
-      const el = document.getElementById(hash);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 50);
+    scrollToHash(hash);
   }, [articles]);
 
   useEffect(() => {
     // Scroll to the initial hash target after mount
     const hash = window.location.hash.replace(/^#/, "");
     if (hash && findByHash(articles, hash)) {
-      setTimeout(() => {
-        const el = document.getElementById(hash);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 50);
+      scrollToHash(hash);
     }
 
     const onHashChange = () => {
