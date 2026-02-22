@@ -32,3 +32,32 @@ body {
 [contenteditable] ol {
   list-style-type: decimal;
 }
+
+/* Constitution body – dark-mode table styling */
+.constitution-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+
+.constitution-body th,
+.constitution-body td {
+  border: 1px solid #374151;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.constitution-body th {
+  background: #1f2937;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.constitution-body td {
+  color: #d1d5db;
+}
+
+/* Horizontal scroll for tables on small screens */
+.constitution-body {
+  overflow-x: auto;
+}
