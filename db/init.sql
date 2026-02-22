@@ -164,7 +164,8 @@ create table if not exists team_sessions (
   id uuid primary key default gen_random_uuid(),
   team_id text not null,
   team_name text not null,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  last_seen_at timestamptz default now()
 );
 
 -- ============================================================

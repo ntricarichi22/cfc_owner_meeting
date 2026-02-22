@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { setSessionCookie, clearSession, getSession } from "@/lib/session";
 
-const SESSION_CLAIM_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours
+const SESSION_TTL_MS = 60_000; // 60 seconds heartbeat TTL
 
 export async function POST(req: NextRequest) {
   const { teamId, teamName } = await req.json();
@@ -31,17 +31,22 @@ export async function POST(req: NextRequest) {
     }
 
     if (existingSessionRow && existingSessionRow.team_id === teamId) {
+      // Refresh heartbeat for the existing session
+      await sb
+        .from("team_sessions")
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq("id", existingSession.session_id);
       return NextResponse.json({ ok: true });
     }
   }
 
-  // Check if this team is already claimed in the last 24 hours
-  const cutoff = new Date(Date.now() - SESSION_CLAIM_TIMEOUT_MS).toISOString();
+  // Check if this team is actively claimed (last_seen_at within TTL)
+  const cutoff = new Date(Date.now() - SESSION_TTL_MS).toISOString();
   const { data: existing, error: checkError } = await sb
     .from("team_sessions")
     .select("id")
     .eq("team_id", teamId)
-    .gte("created_at", cutoff)
+    .gte("last_seen_at", cutoff)
     .limit(1);
 
   if (checkError) {
@@ -57,6 +62,13 @@ export async function POST(req: NextRequest) {
       { status: 409 }
     );
   }
+
+  // Clean up any stale sessions for this team before inserting
+  await sb
+    .from("team_sessions")
+    .delete()
+    .eq("team_id", teamId)
+    .lt("last_seen_at", cutoff);
 
   // Insert a new team_sessions row
   const { data: createdSession, error: insertError } = await sb
