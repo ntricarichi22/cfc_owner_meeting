@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { COMMISSIONER_TEAM_NAME } from "@/lib/constants";
+import { COMMISSIONER_TEAM_NAME, PROPOSAL_STATUSES } from "@/lib/constants";
 
 async function requireCommissionerSession() {
   const session = await getSession();
@@ -65,10 +65,9 @@ export async function PUT(req: NextRequest) {
   if (body.summary !== undefined) updates.summary = body.summary;
   if (body.effective_date !== undefined) updates.effective_date = body.effective_date;
   if (body.status !== undefined) {
-    const valid = ["draft", "open", "passed", "failed", "tabled"];
-    if (!valid.includes(body.status)) {
+    if (!PROPOSAL_STATUSES.includes(body.status)) {
       return NextResponse.json(
-        { error: `Invalid status. Must be one of: ${valid.join(", ")}` },
+        { error: `Invalid status. Must be one of: ${PROPOSAL_STATUSES.join(", ")}` },
         { status: 400 }
       );
     }

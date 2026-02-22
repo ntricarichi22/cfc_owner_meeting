@@ -12,20 +12,17 @@ async function requireCommissionerSession() {
 }
 
 function buildRationale(pros: string, cons: string): string {
+  const prosLines = pros.split("\n").map((l) => l.trim()).filter(Boolean);
+  const consLines = cons.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (prosLines.length === 0 && consLines.length === 0) return "";
   const lines: string[] = [];
   lines.push("[PROS]");
-  for (const line of pros.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed) {
-      lines.push(trimmed.startsWith("-") ? trimmed : `- ${trimmed}`);
-    }
+  for (const line of prosLines) {
+    lines.push(line.startsWith("-") ? line : `- ${line}`);
   }
   lines.push("[CONS]");
-  for (const line of cons.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed) {
-      lines.push(trimmed.startsWith("-") ? trimmed : `- ${trimmed}`);
-    }
+  for (const line of consLines) {
+    lines.push(line.startsWith("-") ? line : `- ${line}`);
   }
   return lines.join("\n");
 }
@@ -99,7 +96,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const rationale = buildRationale(body.pros || "", body.cons || "");
+  const rationale = buildRationale(body.pros || "", body.cons || "") || null;
 
   // Insert new active version
   const { data, error } = await sb

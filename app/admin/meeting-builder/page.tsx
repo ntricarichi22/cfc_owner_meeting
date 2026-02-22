@@ -111,8 +111,8 @@ export default function MeetingBuilderPage() {
 
       setItems(agendaItems);
       setNewItemOrder(agendaItems.length + 1);
-    } catch {
-      setError("Failed to load meeting data");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load meeting data");
     }
   }, []);
 
