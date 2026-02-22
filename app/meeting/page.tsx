@@ -13,8 +13,20 @@ import type {
   Proposal,
   ProposalVersion,
   Amendment,
-  ConstitutionSection,
 } from "@/lib/types";
+
+/** Enriched section returned by /api/constitution-sections */
+interface ConstitutionSectionInfo {
+  id: string;
+  section_num?: string;
+  section_title?: string;
+  anchor?: string;
+  article_num?: number | null;
+  article_title?: string | null;
+  /* fallback MVP fields */
+  section_key?: string;
+  title?: string;
+}
 
 const CONSTITUTION_LINKS_PREFIX = "[CONSTITUTION_LINKS:";
 const MAX_VISIBLE_SECTIONS = 24;
@@ -69,7 +81,7 @@ export default function MeetingOwnerPage() {
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [proposals, setProposals] = useState<(Proposal & { proposal_versions?: ProposalVersion[] })[]>([]);
   const [amendments, setAmendments] = useState<Amendment[]>([]);
-  const [constitutionSections, setConstitutionSections] = useState<ConstitutionSection[]>([]);
+  const [constitutionSections, setConstitutionSections] = useState<ConstitutionSectionInfo[]>([]);
   const [constitutionLinksInput, setConstitutionLinksInput] = useState("");
   const [savingConstitutionLinks, setSavingConstitutionLinks] = useState(false);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
@@ -96,6 +108,14 @@ export default function MeetingOwnerPage() {
   const activeVersion = proposal?.proposal_versions?.find((v) => v.is_active) ?? null;
   const summaryText = summaryWithoutConstitutionLinks(proposal?.summary);
   const constitutionLinks = parseConstitutionLinks(proposal?.summary);
+  // Build map: section id → section info for deep-link chips
+  const sectionMap = new Map(
+    constitutionSections.map((s) => [s.id, s])
+  );
+  // Resolve article_sections UUIDs to enriched section objects
+  const linkedSections = (proposal?.article_sections || [])
+    .map((id) => sectionMap.get(id))
+    .filter((s): s is ConstitutionSectionInfo => !!s);
   // Prefer direct pros/cons fields; fall back to rationale parsing for legacy data
   const rationaleData = (() => {
     // Check if pros/cons contain HTML (from rich text editor)
@@ -175,7 +195,7 @@ export default function MeetingOwnerPage() {
     fetch("/api/constitution-sections")
       .then(async (res) => {
         if (!res.ok) return [];
-        return (await res.json()) as ConstitutionSection[];
+        return (await res.json()) as ConstitutionSectionInfo[];
       })
       .then((data) => setConstitutionSections(Array.isArray(data) ? data : []))
       .catch(() => {});
@@ -447,14 +467,28 @@ export default function MeetingOwnerPage() {
                         <span className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9]">
                           Effective Date: {proposal?.effective_date || "TBD"}
                         </span>
-                        <a
-                          href="/constitution"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
-                        >
-                          Constitution ↗
-                        </a>
+                        {linkedSections.length > 0 ? (
+                          linkedSections.map((sec) => (
+                            <a
+                              key={sec.id}
+                              href={`/constitution/${sec.anchor || sec.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
+                            >
+                              §{sec.section_num || sec.section_key} {sec.section_title || sec.title} ↗
+                            </a>
+                          ))
+                        ) : (
+                          <a
+                            href="/constitution"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
+                          >
+                            Constitution ↗
+                          </a>
+                        )}
                       </div>
                       <button
                         onClick={() => setShowVotingModal(true)}
@@ -563,10 +597,56 @@ export default function MeetingOwnerPage() {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
-                  <h3 className="text-xs uppercase tracking-[0.2em] text-white/40">Admin Slide</h3>
-                  <p className="text-3xl mt-3 font-medium">{proposal?.title || "General agenda item"}</p>
-                  <p className="text-white/60 mt-3 max-w-3xl">This item is discussion-only. Voting is not required for this slide.</p>
+                <div className="flex flex-col h-full min-h-0">
+                  <header className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-5 flex-shrink-0 flex flex-col justify-between">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-xs uppercase tracking-[0.2em] text-white/40">Admin Slide</span>
+                    </div>
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">
+                      {proposal?.title || "General agenda item"}
+                    </h1>
+                    <div className="flex flex-wrap items-center gap-3 mt-4">
+                      <span className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9]">
+                        Proposed by: {proposal?.proposed_by || "Commissioner"}
+                      </span>
+                      {linkedSections.length > 0 ? (
+                        linkedSections.map((sec) => (
+                          <a
+                            key={sec.id}
+                            href={`/constitution/${sec.anchor || sec.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
+                          >
+                            §{sec.section_num || sec.section_key} {sec.section_title || sec.title} ↗
+                          </a>
+                        ))
+                      ) : (
+                        <a
+                          href="/constitution"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
+                        >
+                          Constitution ↗
+                        </a>
+                      )}
+                    </div>
+                  </header>
+                  <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-white/10 bg-white/[0.03] p-6 overflow-auto">
+                    {summaryText ? (
+                      isHtmlContent(summaryText) ? (
+                        <div
+                          className="prose prose-invert prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(summaryText) }}
+                        />
+                      ) : (
+                        <p className="text-white/90 whitespace-pre-wrap">{summaryText}</p>
+                      )
+                    ) : (
+                      <p className="text-white/60">This item is discussion-only. Voting is not required for this slide.</p>
+                    )}
+                  </div>
                 </div>
               )}
           </section>
