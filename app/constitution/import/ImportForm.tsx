@@ -14,9 +14,10 @@ export default function ImportForm({ teamName, isCommissioner }: ImportFormProps
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{
-    success?: boolean;
-    articlesImported?: number;
-    sectionsImported?: number;
+    ok?: boolean;
+    articlesInserted?: number;
+    sectionsInserted?: number;
+    dedupedAnchors?: { article_num: number; section_num: string; anchor: string }[];
     error?: string;
   } | null>(null);
 
@@ -95,10 +96,15 @@ export default function ImportForm({ teamName, isCommissioner }: ImportFormProps
             </div>
           )}
 
-          {result?.success && (
+          {result?.ok && (
             <div className="bg-green-900/50 border border-green-700 text-green-200 px-4 py-3 rounded">
-              Import successful: {result.articlesImported} articles and{" "}
-              {result.sectionsImported} sections imported.
+              Import successful: {result.articlesInserted} articles and{" "}
+              {result.sectionsInserted} sections imported.
+              {result.dedupedAnchors && result.dedupedAnchors.length > 0 && (
+                <p className="mt-2 text-yellow-300 text-sm">
+                  {result.dedupedAnchors.length} duplicate anchor(s) were renamed.
+                </p>
+              )}
             </div>
           )}
         </div>
