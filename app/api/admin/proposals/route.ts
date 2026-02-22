@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { COMMISSIONER_TEAM_NAME, PROPOSAL_STATUSES } from "@/lib/constants";
+import { isHtmlContent } from "@/lib/html-utils";
 
 async function requireCommissionerSession() {
   const session = await getSession();
@@ -13,11 +14,10 @@ async function requireCommissionerSession() {
 
 function buildRationale(pros: string | null | undefined, cons: string | null | undefined): string {
   // Handle both HTML content (from rich text editor) and plain text (legacy)
-  const isHtml = (s: string) => /<[a-z][\s\S]*>/i.test(s);
   const prosStr = pros || "";
   const consStr = cons || "";
 
-  if (isHtml(prosStr) || isHtml(consStr)) {
+  if (isHtmlContent(prosStr) || isHtmlContent(consStr)) {
     // For HTML content, store as-is with markers
     const lines: string[] = [];
     if (prosStr.replace(/<[^>]*>/g, "").trim()) {

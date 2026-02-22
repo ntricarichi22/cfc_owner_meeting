@@ -7,6 +7,7 @@ import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
 import VotingPanel from "@/components/VotingPanel";
 import { COMMISSIONER_TEAM_NAME } from "@/lib/constants";
+import { isHtmlContent, isEmptyHtml } from "@/lib/html-utils";
 import type {
   Meeting,
   Proposal,
@@ -60,17 +61,6 @@ function constitutionAnchorId(sectionKey: string) {
   return `const-${sectionKey.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 }
 
-function isHtmlContent(text: string | null | undefined): boolean {
-  if (!text) return false;
-  return /<[a-z][\s\S]*>/i.test(text);
-}
-
-function isEmptyHtml(text: string | null | undefined): boolean {
-  if (!text) return true;
-  const stripped = text.replace(/<[^>]*>/g, "").trim();
-  return stripped.length === 0;
-}
-
 export default function MeetingOwnerPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -116,8 +106,8 @@ export default function MeetingOwnerPage() {
       return {
         pros: [] as string[],
         cons: [] as string[],
-        prosHtml: prosIsHtml && !isEmptyHtml(proposal?.pros) ? proposal!.pros! : null,
-        consHtml: consIsHtml && !isEmptyHtml(proposal?.cons) ? proposal!.cons! : null,
+        prosHtml: prosIsHtml && !isEmptyHtml(proposal?.pros) ? (proposal?.pros ?? null) : null,
+        consHtml: consIsHtml && !isEmptyHtml(proposal?.cons) ? (proposal?.cons ?? null) : null,
       };
     }
 
