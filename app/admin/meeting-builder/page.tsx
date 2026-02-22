@@ -26,6 +26,11 @@ function parseRationale(rationale: string | null | undefined) {
 type ProposalWithVersions = Proposal & { proposal_versions?: ProposalVersion[] };
 type AgendaItemWithProposals = AgendaItem & { proposals?: ProposalWithVersions[] };
 
+/** Compute a deterministic slide list sorted by order_index */
+function buildSlideOrder(items: AgendaItemWithProposals[]): AgendaItemWithProposals[] {
+  return [...items].sort((a, b) => a.order_index - b.order_index);
+}
+
 export default function MeetingBuilderPage() {
   const router = useRouter();
   const { session, loading: sessionLoading, isCommissioner, logout } = useSession();
@@ -34,10 +39,11 @@ export default function MeetingBuilderPage() {
   const [items, setItems] = useState<AgendaItemWithProposals[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   // Agenda item form
   const [newItemTitle, setNewItemTitle] = useState("");
-  const [newItemCategory, setNewItemCategory] = useState("proposal");
+  const [newItemCategory, setNewItemCategory] = useState("Article");
   const [newItemOrder, setNewItemOrder] = useState(1);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editItemTitle, setEditItemTitle] = useState("");
@@ -74,6 +80,26 @@ export default function MeetingBuilderPage() {
     }
   }, [session, sessionLoading, isCommissioner, router]);
 
+  /* ---------- sync article buckets ---------- */
+  const syncArticleBuckets = useCallback(async (meetingId: string) => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/admin/sync-article-buckets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meeting_id: meetingId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("Sync error:", err);
+      }
+    } catch {
+      // ignore sync errors silently
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
+
   /* ---------- load data ---------- */
   const loadData = useCallback(async () => {
     try {
@@ -85,6 +111,9 @@ export default function MeetingBuilderPage() {
       }
       const m: Meeting = await res.json();
       setMeeting(m);
+
+      // Auto-sync article buckets
+      await syncArticleBuckets(m.id);
 
       const [itemsRes, proposalsRes] = await Promise.all([
         fetch(`/api/agenda-items?meetingId=${m.id}`),
@@ -114,7 +143,7 @@ export default function MeetingBuilderPage() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load meeting data");
     }
-  }, []);
+  }, [syncArticleBuckets]);
 
   useEffect(() => {
     if (session && isCommissioner) loadData();
@@ -358,7 +387,10 @@ export default function MeetingBuilderPage() {
 
       <div className="max-w-5xl mx-auto px-6 py-8">
         <h1 className="text-3xl font-bold tracking-tight mb-2">Meeting Builder</h1>
-        <p className="text-white/50 text-sm mb-6">Commissioner-only tool to manage agenda items, proposals, and versions.</p>
+        <p className="text-white/50 text-sm mb-6">
+          Commissioner-only tool to manage agenda items, proposals, and versions.
+          {syncing && <span className="ml-2 text-[#0ea5e9]">Syncing article buckets…</span>}
+        </p>
 
         {error && (
           <div className="bg-red-900/70 border border-red-700 text-red-200 px-4 py-2 rounded-xl mb-4 flex justify-between items-center">
@@ -405,13 +437,14 @@ export default function MeetingBuilderPage() {
                     onChange={(e) => setNewItemCategory(e.target.value)}
                     className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-white"
                   >
+                    <option value="Article">Article</option>
                     <option value="proposal">proposal</option>
                     <option value="discussion">discussion</option>
                     <option value="admin">admin</option>
                   </select>
                 </div>
                 <div className="w-24">
-                  <label className="text-xs text-white/50 block mb-1">Order</label>
+                  <label className="text-xs text-white/50 block mb-1">Slide Order</label>
                   <input
                     type="number"
                     value={newItemOrder}
@@ -430,9 +463,31 @@ export default function MeetingBuilderPage() {
               </div>
             </div>
 
-            {/* Agenda Items List */}
+            {/* Deterministic Slide Order Preview */}
+            {items.length > 0 && (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4 mb-6">
+                <h2 className="text-sm font-semibold text-white/60 mb-2 uppercase tracking-widest">Slide Order Preview</h2>
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-xs rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-white/50">0: Title Slide</span>
+                  {buildSlideOrder(items).map((item, idx) => (
+                    <span
+                      key={item.id}
+                      className={`text-xs rounded-lg border px-3 py-1 ${
+                        item.category === "Article"
+                          ? "border-[#0ea5e9]/30 bg-[#0ea5e9]/5 text-[#0ea5e9]/80"
+                          : "border-white/10 bg-white/5 text-white/50"
+                      }`}
+                    >
+                      {idx + 1}: {item.title}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Agenda Items – grouped by Article buckets, then other items */}
             <div className="space-y-4">
-              {items.map((item) => (
+              {buildSlideOrder(items).map((item) => (
                 <div key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-5">
                   {editingItemId === item.id ? (
                     /* Edit mode */
@@ -453,13 +508,14 @@ export default function MeetingBuilderPage() {
                             onChange={(e) => setEditItemCategory(e.target.value)}
                             className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-white"
                           >
+                            <option value="Article">Article</option>
                             <option value="proposal">proposal</option>
                             <option value="discussion">discussion</option>
                             <option value="admin">admin</option>
                           </select>
                         </div>
                         <div className="w-24">
-                          <label className="text-xs text-white/50 block mb-1">Order</label>
+                          <label className="text-xs text-white/50 block mb-1">Slide Order</label>
                           <input
                             type="number"
                             value={editItemOrder}
@@ -479,9 +535,9 @@ export default function MeetingBuilderPage() {
                     <div>
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="text-xs uppercase tracking-widest text-white/40 mr-3">#{item.order_index}</span>
+                          <span className="text-xs uppercase tracking-widest text-white/40 mr-3">Slide #{item.order_index}</span>
                           <span className="font-semibold">{item.title}</span>
-                          <span className="ml-2 text-xs rounded-full border border-white/20 px-2 py-0.5 text-white/50">{item.category}</span>
+                          <span className={`ml-2 text-xs rounded-full border px-2 py-0.5 ${item.category === "Article" ? "border-[#0ea5e9]/40 text-[#0ea5e9]/70" : "border-white/20 text-white/50"}`}>{item.category}</span>
                         </div>
                         <div className="flex gap-2">
                           <button

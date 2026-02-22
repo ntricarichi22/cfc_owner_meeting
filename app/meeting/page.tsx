@@ -410,7 +410,7 @@ export default function MeetingOwnerPage() {
           </section>
         ) : (
           <section className="h-full flex flex-col px-8 py-6 md:px-14 md:py-8 overflow-hidden">
-              {currentItem?.category === "proposal" ? (
+              {currentItem?.category === "proposal" || currentItem?.category === "Article" ? (
                 <div className="flex flex-col h-full min-h-0">
                   {/* Proposal header card */}
                   <header className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-5 flex-shrink-0 flex flex-col justify-between">
