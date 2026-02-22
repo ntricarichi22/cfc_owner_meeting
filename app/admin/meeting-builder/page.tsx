@@ -43,7 +43,7 @@ export default function MeetingBuilderPage() {
 
   // Agenda item form
   const [newItemTitle, setNewItemTitle] = useState("");
-  const [newItemCategory, setNewItemCategory] = useState("Article");
+  const [newItemCategory, setNewItemCategory] = useState("proposal");
   const [newItemOrder, setNewItemOrder] = useState(1);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editItemTitle, setEditItemTitle] = useState("");
@@ -91,10 +91,10 @@ export default function MeetingBuilderPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        console.error("Sync error:", err);
+        setError(err.error || "Failed to sync article buckets");
       }
     } catch {
-      // ignore sync errors silently
+      setError("Failed to sync article buckets");
     } finally {
       setSyncing(false);
     }

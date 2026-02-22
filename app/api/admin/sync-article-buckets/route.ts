@@ -61,8 +61,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const existingByTitle = new Map(
-    (existing ?? []).map((item) => [item.title, item])
+  // Match existing items by order_index (more stable than title if article names change)
+  const existingByOrder = new Map(
+    (existing ?? []).map((item) => [item.order_index, item])
   );
 
   const results: { id: string; title: string; order_index: number }[] = [];
@@ -71,15 +72,22 @@ export async function POST(req: NextRequest) {
     const title = `Article ${article.article_num} – ${article.article_title}`;
     const orderIndex = article.sort_order ?? 0;
 
-    const match = existingByTitle.get(title);
+    const match = existingByOrder.get(orderIndex);
 
     if (match) {
-      // Update order_index if it changed
-      if (match.order_index !== orderIndex) {
-        await sb
+      // Update title and order_index if they changed
+      if (match.title !== title || match.order_index !== orderIndex) {
+        const { error: updateErr } = await sb
           .from("agenda_items")
-          .update({ order_index: orderIndex })
+          .update({ title, order_index: orderIndex })
           .eq("id", match.id);
+
+        if (updateErr) {
+          return NextResponse.json(
+            { error: `Failed to update agenda item for "${title}"`, details: updateErr.message },
+            { status: 500 }
+          );
+        }
       }
       results.push({ id: match.id, title, order_index: orderIndex });
     } else {
