@@ -73,6 +73,36 @@ function constitutionAnchorId(sectionKey: string) {
   return `const-${sectionKey.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 }
 
+function ConstitutionChips({ sections }: { sections: ConstitutionSectionInfo[] }) {
+  if (sections.length > 0) {
+    return (
+      <>
+        {sections.map((sec) => (
+          <a
+            key={sec.id}
+            href={`/constitution/${sec.anchor || sec.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
+          >
+            §{sec.section_num || sec.section_key} {sec.section_title || sec.title} ↗
+          </a>
+        ))}
+      </>
+    );
+  }
+  return (
+    <a
+      href="/constitution"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
+    >
+      Constitution ↗
+    </a>
+  );
+}
+
 export default function MeetingOwnerPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -467,28 +497,7 @@ export default function MeetingOwnerPage() {
                         <span className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9]">
                           Effective Date: {proposal?.effective_date || "TBD"}
                         </span>
-                        {linkedSections.length > 0 ? (
-                          linkedSections.map((sec) => (
-                            <a
-                              key={sec.id}
-                              href={`/constitution/${sec.anchor || sec.id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
-                            >
-                              §{sec.section_num || sec.section_key} {sec.section_title || sec.title} ↗
-                            </a>
-                          ))
-                        ) : (
-                          <a
-                            href="/constitution"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
-                          >
-                            Constitution ↗
-                          </a>
-                        )}
+                        <ConstitutionChips sections={linkedSections} />
                       </div>
                       <button
                         onClick={() => setShowVotingModal(true)}
@@ -609,28 +618,7 @@ export default function MeetingOwnerPage() {
                       <span className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9]">
                         Proposed by: {proposal?.proposed_by || "Commissioner"}
                       </span>
-                      {linkedSections.length > 0 ? (
-                        linkedSections.map((sec) => (
-                          <a
-                            key={sec.id}
-                            href={`/constitution/${sec.anchor || sec.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
-                          >
-                            §{sec.section_num || sec.section_key} {sec.section_title || sec.title} ↗
-                          </a>
-                        ))
-                      ) : (
-                        <a
-                          href="/constitution"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
-                        >
-                          Constitution ↗
-                        </a>
-                      )}
+                      <ConstitutionChips sections={linkedSections} />
                     </div>
                   </header>
                   <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-white/10 bg-white/[0.03] p-6 overflow-auto">
