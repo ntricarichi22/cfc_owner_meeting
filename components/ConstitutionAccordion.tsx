@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import DOMPurify from "isomorphic-dompurify";
 
 interface Section {
@@ -18,9 +18,37 @@ interface Article {
   sections: Section[];
 }
 
+/** Delay (ms) to let React re-render expanded accordions before scrolling */
+const SCROLL_DELAY_MS = 50;
+
+function findByHash(articles: Article[], hash: string) {
+  if (!hash) return null;
+  for (const article of articles) {
+    for (const section of article.sections) {
+      if (section.anchor === hash) return { articleId: article.id, sectionId: section.id };
+    }
+  }
+  return null;
+}
+
+function scrollToHash(hash: string) {
+  setTimeout(() => {
+    const el = document.getElementById(hash);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, SCROLL_DELAY_MS);
+}
+
 export default function ConstitutionAccordion({ articles }: { articles: Article[] }) {
-  const [openArticles, setOpenArticles] = useState<Set<string>>(new Set());
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+  const [openArticles, setOpenArticles] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    const match = findByHash(articles, window.location.hash.replace(/^#/, ""));
+    return match ? new Set([match.articleId]) : new Set();
+  });
+  const [openSections, setOpenSections] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    const match = findByHash(articles, window.location.hash.replace(/^#/, ""));
+    return match ? new Set([match.sectionId]) : new Set();
+  });
 
   const toggleArticle = (id: string) => {
     setOpenArticles((prev) => {
@@ -39,6 +67,28 @@ export default function ConstitutionAccordion({ articles }: { articles: Article[
       return next;
     });
   };
+
+  const openAndScroll = useCallback((hash: string) => {
+    const match = findByHash(articles, hash);
+    if (!match) return;
+    setOpenArticles((prev) => new Set(prev).add(match.articleId));
+    setOpenSections((prev) => new Set(prev).add(match.sectionId));
+    scrollToHash(hash);
+  }, [articles]);
+
+  useEffect(() => {
+    // Scroll to the initial hash target after mount
+    const hash = window.location.hash.replace(/^#/, "");
+    if (hash && findByHash(articles, hash)) {
+      scrollToHash(hash);
+    }
+
+    const onHashChange = () => {
+      openAndScroll(window.location.hash.replace(/^#/, ""));
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [articles, openAndScroll]);
 
   if (articles.length === 0) {
     return <p className="text-gray-500">No constitution articles found.</p>;
