@@ -129,11 +129,10 @@ export interface AgendaSection {
 
 export interface ConstitutionArticle {
   id: string;
-  league_id: string;
-  club_year: number;
-  article_num: string;
+  article_num: number;
   article_title: string;
   sort_order: number;
+  created_at?: string;
 }
 
 export interface MeetingMinutes {
