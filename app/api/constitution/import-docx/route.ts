@@ -217,28 +217,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // Insert sections for this article
-    let sectionSortOrder = 1;
-    for (const section of article.sections) {
+    // Batch insert sections for this article
+    if (article.sections.length > 0) {
+      const sectionRows = article.sections.map((section, idx) => ({
+        article_id: insertedArticle.id,
+        section_num: section.section_num,
+        section_title: section.section_title,
+        body: section.body,
+        anchor: section.anchor,
+        sort_order: idx + 1,
+      }));
+
       const { error: sectionError } = await sb
         .from("constitution_sections")
-        .insert({
-          article_id: insertedArticle.id,
-          section_num: section.section_num,
-          section_title: section.section_title,
-          body: section.body,
-          anchor: section.anchor,
-          sort_order: sectionSortOrder,
-        });
+        .insert(sectionRows);
 
       if (sectionError) {
         return NextResponse.json(
-          { error: `Failed to insert Section ${section.section_num} of Article ${article.article_num}: ${sectionError.message}` },
+          { error: `Failed to insert sections for Article ${article.article_num}: ${sectionError.message}` },
           { status: 500 }
         );
       }
-      sectionSortOrder++;
-      totalSections++;
+      totalSections += article.sections.length;
     }
   }
 
