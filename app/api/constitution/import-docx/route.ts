@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { COMMISSIONER_TEAM_NAME } from "@/lib/constants";
 import mammoth from "mammoth";
+import { parse as parseHTML, HTMLElement } from "node-html-parser";
 
 // Roman numeral to integer conversion
 function romanToInt(roman: string): number {
@@ -57,41 +58,53 @@ interface ParseResult {
   dedupedAnchors: DedupedAnchor[];
 }
 
-// Parse HTML from mammoth into articles and sections
+// Build a unique anchor, tracking used anchors and recording deduped ones
+function makeAnchor(
+  articleNum: number,
+  sectionNum: string,
+  usedAnchors: Set<string>,
+  dedupedAnchors: DedupedAnchor[],
+): string {
+  const baseAnchor = `article-${articleNum}-section-${sectionNum}`;
+  let anchor = baseAnchor;
+  if (usedAnchors.has(anchor)) {
+    let suffix = 2;
+    while (usedAnchors.has(`${baseAnchor}-${suffix}`)) suffix++;
+    anchor = `${baseAnchor}-${suffix}`;
+    dedupedAnchors.push({ article_num: articleNum, section_num: sectionNum, anchor });
+  }
+  usedAnchors.add(anchor);
+  return anchor;
+}
+
+const SECTION_RE = /^Section\s+(\d+)\s*:\s*(.+)$/i;
+
+// Parse HTML from mammoth into articles and sections.
+// Section headers are detected by TEXT content, not by tag type, so that
+// "Section X: …" lines rendered as <p>, <strong>, etc. are still recognised.
 function parseConstitutionHtml(html: string): ParseResult {
   const articles: ParsedArticle[] = [];
   const usedAnchors = new Set<string>();
   const dedupedAnchors: DedupedAnchor[] = [];
 
-  // Split on <h1> tags to find articles
-  const h1Pattern = /<h1>(.*?)<\/h1>/gi;
-  const parts: { heading: string; body: string }[] = [];
+  const root = parseHTML(html);
+  const topNodes = root.childNodes;
 
-  let match: RegExpExecArray | null;
-  const headings: { heading: string; index: number; endIndex: number }[] = [];
+  // Collect article blocks: { headingEl, bodyNodes[] }
+  const articleBlocks: { heading: HTMLElement; bodyNodes: typeof topNodes }[] = [];
 
-  while ((match = h1Pattern.exec(html)) !== null) {
-    headings.push({
-      heading: match[1],
-      index: match.index,
-      endIndex: match.index + match[0].length,
-    });
+  for (const node of topNodes) {
+    if (node instanceof HTMLElement && node.tagName === "H1") {
+      articleBlocks.push({ heading: node, bodyNodes: [] });
+    } else if (articleBlocks.length > 0) {
+      articleBlocks[articleBlocks.length - 1].bodyNodes.push(node);
+    }
   }
 
-  for (let i = 0; i < headings.length; i++) {
-    const nextStart = i + 1 < headings.length ? headings[i + 1].index : html.length;
-    parts.push({
-      heading: headings[i].heading,
-      body: html.substring(headings[i].endIndex, nextStart),
-    });
-  }
-
-  // Parse each article
   let articleSortOrder = 1;
-  for (const part of parts) {
-    // Match "Article X: Title" or "Article X – Title" or "Article X - Title"
-    const articleMatch = part.heading.match(
-      /Article\s+([IVXLCDM\d]+)\s*[:\u2013\u2014\-]\s*(.*)/i
+  for (const block of articleBlocks) {
+    const articleMatch = block.heading.textContent.match(
+      /Article\s+([IVXLCDM\d]+)\s*[:\u2013\u2014\-]\s*(.*)/i,
     );
     if (!articleMatch) continue;
 
@@ -99,77 +112,48 @@ function parseConstitutionHtml(html: string): ParseResult {
     if (isNaN(articleNum)) continue;
     const articleTitle = articleMatch[2].trim();
 
-    // Parse sections within this article body
+    // Walk body nodes; detect section headers by textContent
     const sections: ParsedSection[] = [];
-    const h2Pattern = /<h2>(.*?)<\/h2>/gi;
-    const sectionHeadings: { heading: string; index: number; endIndex: number }[] = [];
-    let h2Match: RegExpExecArray | null;
+    let currentBodyParts: string[] = [];
 
-    while ((h2Match = h2Pattern.exec(part.body)) !== null) {
-      sectionHeadings.push({
-        heading: h2Match[1],
-        index: h2Match.index,
-        endIndex: h2Match.index + h2Match[0].length,
-      });
+    for (const child of block.bodyNodes) {
+      const el = child instanceof HTMLElement ? child : null;
+      const text = (el ? el.textContent : child.textContent).trim();
+      const secMatch = text.match(SECTION_RE);
+
+      if (secMatch) {
+        // Flush previous section's body (if a section was already started)
+        if (sections.length > 0) {
+          sections[sections.length - 1].body = currentBodyParts.join("").trim();
+        }
+        currentBodyParts = [];
+
+        const sectionNum = secMatch[1];
+        const sectionTitle = secMatch[2].trim();
+        const anchor = makeAnchor(articleNum, sectionNum, usedAnchors, dedupedAnchors);
+
+        sections.push({ section_num: sectionNum, section_title: sectionTitle, body: "", anchor });
+      } else {
+        // Accumulate HTML for the current section body
+        currentBodyParts.push(el ? el.outerHTML : child.textContent);
+      }
     }
 
-    for (let j = 0; j < sectionHeadings.length; j++) {
-      // Only create a section when heading matches: Section <number>: <title>
-      const sectionMatch = sectionHeadings[j].heading.match(
-        /^Section\s+(\d+)\s*:\s*(.+)$/i
-      );
-      if (!sectionMatch) continue;
-
-      const nextStart =
-        j + 1 < sectionHeadings.length
-          ? sectionHeadings[j + 1].index
-          : part.body.length;
-      const sectionBody = part.body.substring(sectionHeadings[j].endIndex, nextStart).trim();
-
-      const sectionNum = sectionMatch[1];
-      const sectionTitle = sectionMatch[2].trim();
-
-      // Build unique anchor
-      const baseAnchor = `article-${articleNum}-section-${sectionNum}`;
-      let anchor = baseAnchor;
-      if (usedAnchors.has(anchor)) {
-        let suffix = 2;
-        while (usedAnchors.has(`${baseAnchor}-${suffix}`)) {
-          suffix++;
-        }
-        anchor = `${baseAnchor}-${suffix}`;
-        dedupedAnchors.push({ article_num: articleNum, section_num: sectionNum, anchor });
-      }
-      usedAnchors.add(anchor);
-
-      sections.push({
-        section_num: sectionNum,
-        section_title: sectionTitle,
-        body: sectionBody,
-        anchor,
-      });
+    // Flush the last section's body
+    if (sections.length > 0) {
+      sections[sections.length - 1].body = currentBodyParts.join("").trim();
     }
 
-    // If no matching <h2> sections found, treat all body as a single section
-    if (sections.length === 0 && part.body.trim()) {
-      const baseAnchor = `article-${articleNum}-section-1`;
-      let anchor = baseAnchor;
-      if (usedAnchors.has(anchor)) {
-        let suffix = 2;
-        while (usedAnchors.has(`${baseAnchor}-${suffix}`)) {
-          suffix++;
-        }
-        anchor = `${baseAnchor}-${suffix}`;
-        dedupedAnchors.push({ article_num: articleNum, section_num: "1", anchor });
+    // Fallback: no section headers detected → single section
+    if (sections.length === 0) {
+      const fallbackBody = block.bodyNodes
+        .map((n) => (n instanceof HTMLElement ? n.outerHTML : n.textContent))
+        .join("")
+        .trim();
+      if (fallbackBody) {
+        const anchor = makeAnchor(articleNum, "1", usedAnchors, dedupedAnchors);
+        sections.push({ section_num: "1", section_title: "General", body: fallbackBody, anchor });
       }
-      usedAnchors.add(anchor);
-
-      sections.push({
-        section_num: "1",
-        section_title: articleTitle,
-        body: part.body.trim(),
-        anchor,
-      });
     }
 
     articles.push({
