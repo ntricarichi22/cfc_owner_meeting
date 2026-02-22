@@ -299,6 +299,22 @@ export default function MeetingOwnerPage() {
     router.push("/");
   };
 
+  const handleEditableKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(document.createTextNode("\u00A0\u00A0\u00A0\u00A0"));
+        range.collapse(false);
+      }
+    }
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.stopPropagation();
+    }
+  };
+
   if (sessionLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -392,12 +408,11 @@ export default function MeetingOwnerPage() {
             </div>
           </section>
         ) : (
-          <section className="h-full overflow-auto px-8 py-8 md:px-14 md:py-12">
-            <div className="max-w-7xl mx-auto space-y-6">
-
+          <section className="h-full flex flex-col px-8 py-6 md:px-14 md:py-8 overflow-hidden">
               {currentItem?.category === "proposal" ? (
-                <div className="space-y-4">
-                  <header className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-5 min-h-[20vh] flex flex-col justify-between">
+                <div className="flex flex-col h-full min-h-0">
+                  {/* Proposal header card */}
+                  <header className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-5 flex-shrink-0 flex flex-col justify-between">
                     <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">
                       Proposal #{currentSlide}: {currentItem?.title || "Untitled Proposal"}
                     </h1>
@@ -427,134 +442,76 @@ export default function MeetingOwnerPage() {
                     </div>
                   </header>
 
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
-                      <p className="text-sm text-white/80 whitespace-pre-wrap">{summaryText || "No summary provided."}</p>
-                      <div className="rounded-xl border border-white/10 bg-black/30 p-4 max-h-80 overflow-auto text-sm whitespace-pre-wrap text-white/80">
-                        {activeVersion?.full_text || "No proposal text provided."}
+                  {/* Three editable cards: Details · Pros · Cons */}
+                  <div className="flex gap-4 mt-4 flex-1 min-h-0">
+                    {/* Details card */}
+                    <div className="flex-1 flex flex-col min-w-0">
+                      <div
+                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-auto text-sm text-white/90 focus:outline-none"
+                        style={{ boxShadow: "0 0 24px 4px rgba(218,165,32,0.18), 0 0 48px 8px rgba(218,165,32,0.08)" }}
+                        contentEditable
+                        suppressContentEditableWarning
+                        role="textbox"
+                        aria-multiline="true"
+                        aria-label="Proposal details"
+                        onKeyDown={handleEditableKeyDown}
+                        data-placeholder="Type proposal details here…"
+                      />
+                      <div className="flex items-center gap-2 mt-3 justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="16" y1="13" x2="8" y2="13" />
+                          <line x1="16" y1="17" x2="8" y2="17" />
+                          <polyline points="10 9 9 9 8 9" />
+                        </svg>
+                        <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">Details</span>
                       </div>
-                    </article>
+                    </div>
 
-                    <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs uppercase tracking-[0.2em] text-white/40">Working Notes</p>
-                        {canSubmitAmendment && (
-                          <button
-                            onClick={() => setShowAmendmentForm((v) => !v)}
-                            className="text-xs px-2.5 py-1 rounded border border-white/20 hover:border-white/40"
-                          >
-                            {showAmendmentForm ? "Close" : "Add"}
-                          </button>
-                        )}
+                    {/* Pros card */}
+                    <div className="flex-1 flex flex-col min-w-0">
+                      <div
+                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-auto text-sm text-white/90 focus:outline-none"
+                        style={{ boxShadow: "0 0 24px 4px rgba(74,222,128,0.18), 0 0 48px 8px rgba(74,222,128,0.08)" }}
+                        contentEditable
+                        suppressContentEditableWarning
+                        role="textbox"
+                        aria-multiline="true"
+                        aria-label="Proposal pros"
+                        onKeyDown={handleEditableKeyDown}
+                        data-placeholder="Type pros here…"
+                      />
+                      <div className="flex items-center gap-2 mt-3 justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white">
+                          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
+                          <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                        </svg>
+                        <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">Pros</span>
                       </div>
+                    </div>
 
-                      <div>
-                        <p className="text-xs text-white/50 mb-2">Linked constitution sections</p>
-                        {constitutionLinks.length === 0 ? (
-                          <p className="text-xs text-white/40">No linked sections.</p>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            {constitutionLinks.map((link) => (
-                              <span key={link} className="text-xs px-2 py-1 rounded-md border border-blue-400/30 bg-blue-500/10 text-blue-200">{link}</span>
-                            ))}
-                          </div>
-                        )}
+                    {/* Cons card */}
+                    <div className="flex-1 flex flex-col min-w-0">
+                      <div
+                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-auto text-sm text-white/90 focus:outline-none"
+                        style={{ boxShadow: "0 0 24px 4px rgba(248,113,113,0.18), 0 0 48px 8px rgba(248,113,113,0.08)" }}
+                        contentEditable
+                        suppressContentEditableWarning
+                        role="textbox"
+                        aria-multiline="true"
+                        aria-label="Proposal cons"
+                        onKeyDown={handleEditableKeyDown}
+                        data-placeholder="Type cons here…"
+                      />
+                      <div className="flex items-center gap-2 mt-3 justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white">
+                          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
+                          <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+                        </svg>
+                        <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">Cons</span>
                       </div>
-
-                      {isCommissioner && proposal && (
-                        <div className="space-y-2">
-                          <label className="text-xs text-white/50 block">Edit linked sections (comma-separated)</label>
-                          <input
-                            value={constitutionLinksInput}
-                            onChange={(e) => setConstitutionLinksInput(e.target.value)}
-                            className="w-full bg-black/40 border border-white/15 rounded p-2 text-sm text-white"
-                            placeholder="3.2, 4.1(b)"
-                          />
-                          <button
-                            onClick={handleSaveConstitutionLinks}
-                            disabled={savingConstitutionLinks}
-                            className="text-xs px-3 py-1.5 rounded border border-white/20 hover:border-white/40 disabled:opacity-40"
-                          >
-                            {savingConstitutionLinks ? "Saving..." : "Save links"}
-                          </button>
-                        </div>
-                      )}
-
-                      {amendmentSuccess && <p className="text-xs text-green-300">{amendmentSuccess}</p>}
-
-                      {canSubmitAmendment && showAmendmentForm && (
-                        <div className="space-y-2 rounded-lg border border-white/10 bg-black/30 p-3">
-                          <textarea
-                            value={amendText}
-                            onChange={(e) => setAmendText(e.target.value)}
-                            placeholder="Suggested text"
-                            className="w-full bg-black/50 border border-white/15 rounded p-2 text-sm min-h-[72px]"
-                          />
-                          <textarea
-                            value={amendRationale}
-                            onChange={(e) => setAmendRationale(e.target.value)}
-                            placeholder="Rationale"
-                            className="w-full bg-black/50 border border-white/15 rounded p-2 text-sm"
-                          />
-                          <button
-                            onClick={handleSubmitAmendment}
-                            disabled={!amendText.trim() || submittingAmendment}
-                            className="text-xs px-3 py-1.5 rounded border border-white/20 hover:border-white/40 disabled:opacity-40"
-                          >
-                            {submittingAmendment ? "Submitting..." : "Submit amendment"}
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="space-y-2 max-h-48 overflow-auto">
-                        {amendments.length === 0 ? (
-                          <p className="text-xs text-white/40">No amendments submitted.</p>
-                        ) : (
-                          amendments.map((a) => (
-                            <div key={a.id} className="rounded-lg border border-white/10 bg-black/30 p-2.5">
-                              <p className="text-xs text-white/80 whitespace-pre-wrap">{a.proposed_text}</p>
-                              {a.rationale && <p className="text-[11px] text-white/50 mt-1">Rationale: {a.rationale}</p>}
-                              <div className="mt-1 flex items-center justify-between">
-                                <span className="text-[11px] text-white/40">{a.submitted_by_team || "Unknown team"}</span>
-                                {isCommissioner && (a.status === "pending" || a.status === "submitted") && (
-                                  <button
-                                    onClick={() => handleReviewAmendment(a.id)}
-                                    className="text-[11px] px-2 py-0.5 rounded border border-white/20 hover:border-white/40"
-                                  >
-                                    Accept
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-
-                      {copyMessage && <p className="text-xs text-green-300">{copyMessage}</p>}
-                      {constitutionSections.length > MAX_VISIBLE_SECTIONS && (
-                        <p className="text-[11px] text-white/40">Showing first {MAX_VISIBLE_SECTIONS} sections.</p>
-                      )}
-                      <div className="space-y-2 max-h-36 overflow-auto">
-                        {constitutionSections.slice(0, MAX_VISIBLE_SECTIONS).map((section) => {
-                          const fragment = `#${constitutionAnchorId(section.section_key)}`;
-                          return (
-                            <button
-                              id={constitutionAnchorId(section.section_key)}
-                              key={section.id}
-                              onClick={async () => {
-                                const deepLink = `${window.location.origin}/meeting${fragment}`;
-                                await navigator.clipboard.writeText(deepLink).catch(() => {});
-                                setCopyMessage(`Copied ${fragment}`);
-                              }}
-                              className="w-full text-left rounded border border-white/10 bg-black/30 p-2 hover:border-white/30"
-                            >
-                              <p className="text-[11px] text-blue-200">{section.section_key}</p>
-                              <p className="text-xs text-white/70 truncate">{section.title}</p>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </article>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -564,7 +521,6 @@ export default function MeetingOwnerPage() {
                   <p className="text-white/60 mt-3 max-w-3xl">This item is discussion-only. Voting is not required for this slide.</p>
                 </div>
               )}
-            </div>
           </section>
         )}
       </main>
