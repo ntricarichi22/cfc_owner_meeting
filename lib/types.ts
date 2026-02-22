@@ -42,9 +42,13 @@ export interface Proposal {
   effective_date: string | null;
   status: "draft" | "open" | "passed" | "failed" | "tabled";
   created_at: string;
-  // Legacy fields for backward compatibility
-  pros?: string | null;
-  cons?: string | null;
+  // New fields for meeting builder modal
+  order_index: number;
+  proposed_by: string | null;
+  proposal_type: string;
+  pros: string | null;
+  cons: string | null;
+  article_sections: string[] | null;
 }
 
 export interface ProposalVersion {
