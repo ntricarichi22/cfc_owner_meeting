@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { COMMISSIONER_TEAM_NAME, PROPOSAL_STATUSES } from "@/lib/constants";
+import { isHtmlContent, isEmptyHtml } from "@/lib/html-utils";
 
 async function requireCommissionerSession() {
   const session = await getSession();
@@ -12,8 +13,27 @@ async function requireCommissionerSession() {
 }
 
 function buildRationale(pros: string | null | undefined, cons: string | null | undefined): string {
-  const prosLines = (pros || "").split("\n").map((l) => l.trim()).filter(Boolean);
-  const consLines = (cons || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  // Handle both HTML content (from rich text editor) and plain text (legacy)
+  const prosStr = pros || "";
+  const consStr = cons || "";
+
+  if (isHtmlContent(prosStr) || isHtmlContent(consStr)) {
+    // For HTML content, store as-is with markers
+    const lines: string[] = [];
+    if (!isEmptyHtml(prosStr)) {
+      lines.push("[PROS]");
+      lines.push(prosStr);
+    }
+    if (!isEmptyHtml(consStr)) {
+      lines.push("[CONS]");
+      lines.push(consStr);
+    }
+    return lines.join("\n");
+  }
+
+  // Plain text: split by newlines and format as before
+  const prosLines = prosStr.split("\n").map((l) => l.trim()).filter(Boolean);
+  const consLines = consStr.split("\n").map((l) => l.trim()).filter(Boolean);
   if (prosLines.length === 0 && consLines.length === 0) return "";
   const lines: string[] = [];
   lines.push("[PROS]");

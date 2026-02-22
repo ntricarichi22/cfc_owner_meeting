@@ -2,10 +2,12 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import DOMPurify from "isomorphic-dompurify";
 import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
 import VotingPanel from "@/components/VotingPanel";
 import { COMMISSIONER_TEAM_NAME } from "@/lib/constants";
+import { isHtmlContent, isEmptyHtml } from "@/lib/html-utils";
 import type {
   Meeting,
   Proposal,
@@ -96,6 +98,19 @@ export default function MeetingOwnerPage() {
   const constitutionLinks = parseConstitutionLinks(proposal?.summary);
   // Prefer direct pros/cons fields; fall back to rationale parsing for legacy data
   const rationaleData = (() => {
+    // Check if pros/cons contain HTML (from rich text editor)
+    const prosIsHtml = isHtmlContent(proposal?.pros);
+    const consIsHtml = isHtmlContent(proposal?.cons);
+
+    if (prosIsHtml || consIsHtml) {
+      return {
+        pros: [] as string[],
+        cons: [] as string[],
+        prosHtml: prosIsHtml && !isEmptyHtml(proposal?.pros) ? (proposal?.pros ?? null) : null,
+        consHtml: consIsHtml && !isEmptyHtml(proposal?.cons) ? (proposal?.cons ?? null) : null,
+      };
+    }
+
     const directPros = proposal?.pros
       ? proposal.pros.split("\n").map((l) => l.trim().replace(/^-\s*/, "")).filter(Boolean)
       : [];
@@ -103,9 +118,10 @@ export default function MeetingOwnerPage() {
       ? proposal.cons.split("\n").map((l) => l.trim().replace(/^-\s*/, "")).filter(Boolean)
       : [];
     if (directPros.length > 0 || directCons.length > 0) {
-      return { pros: directPros, cons: directCons };
+      return { pros: directPros, cons: directCons, prosHtml: null, consHtml: null };
     }
-    return parseRationale(activeVersion?.rationale);
+    const parsed = parseRationale(activeVersion?.rationale);
+    return { ...parsed, prosHtml: null, consHtml: null };
   })();
   const previousVoteStatusRef = useRef<string | null>(null);
 
@@ -459,7 +475,14 @@ export default function MeetingOwnerPage() {
                         aria-label="Proposal details"
                       >
                         {summaryText ? (
-                          <p className="whitespace-pre-wrap">{summaryText}</p>
+                          isHtmlContent(summaryText) ? (
+                            <div
+                              className="prose prose-invert prose-sm max-w-none"
+                              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(summaryText) }}
+                            />
+                          ) : (
+                            <p className="whitespace-pre-wrap">{summaryText}</p>
+                          )
                         ) : (
                           <p className="text-white/30 italic">No details added yet.</p>
                         )}
@@ -483,7 +506,12 @@ export default function MeetingOwnerPage() {
                         style={{ boxShadow: "0 0 24px 4px rgba(74,222,128,0.18), 0 0 48px 8px rgba(74,222,128,0.08)" }}
                         aria-label="Proposal pros"
                       >
-                        {rationaleData.pros.length > 0 ? (
+                        {rationaleData.prosHtml ? (
+                          <div
+                            className="prose prose-invert prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(rationaleData.prosHtml) }}
+                          />
+                        ) : rationaleData.pros.length > 0 ? (
                           <ul className="list-disc list-inside space-y-1">
                             {rationaleData.pros.map((line, i) => (
                               <li key={i}>{line}</li>
@@ -509,7 +537,12 @@ export default function MeetingOwnerPage() {
                         style={{ boxShadow: "0 0 24px 4px rgba(248,113,113,0.18), 0 0 48px 8px rgba(248,113,113,0.08)" }}
                         aria-label="Proposal cons"
                       >
-                        {rationaleData.cons.length > 0 ? (
+                        {rationaleData.consHtml ? (
+                          <div
+                            className="prose prose-invert prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(rationaleData.consHtml) }}
+                          />
+                        ) : rationaleData.cons.length > 0 ? (
                           <ul className="list-disc list-inside space-y-1">
                             {rationaleData.cons.map((line, i) => (
                               <li key={i}>{line}</li>

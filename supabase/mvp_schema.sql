@@ -54,7 +54,13 @@ create table if not exists proposals (
   effective_date  text,
   status          text not null default 'draft'
                     check (status in ('draft','open','passed','failed','tabled')),
-  created_at      timestamptz not null default now()
+  created_at      timestamptz not null default now(),
+  order_index     int not null default 0,
+  proposed_by     text,
+  proposal_type   text not null default 'proposal',
+  pros            text,
+  cons            text,
+  article_sections jsonb default '[]'::jsonb
 );
 
 -- ============================================================
