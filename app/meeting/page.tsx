@@ -84,7 +84,7 @@ export default function MeetingOwnerPage() {
 
   // Build slide list from proposals sorted by order_index (not agenda items)
   const sortedProposals = [...proposals].sort(
-    (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
+    (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0) || a.created_at.localeCompare(b.created_at)
   );
   const slideCount = sortedProposals.length + 1;
   const slideParam = Number(searchParams.get("slide") ?? "0");

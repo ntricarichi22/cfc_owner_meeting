@@ -11,9 +11,9 @@ async function requireCommissionerSession() {
   return session;
 }
 
-function buildRationale(pros: string, cons: string): string {
-  const prosLines = pros.split("\n").map((l) => l.trim()).filter(Boolean);
-  const consLines = cons.split("\n").map((l) => l.trim()).filter(Boolean);
+function buildRationale(pros: string | null | undefined, cons: string | null | undefined): string {
+  const prosLines = (pros || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const consLines = (cons || "").split("\n").map((l) => l.trim()).filter(Boolean);
   if (prosLines.length === 0 && consLines.length === 0) return "";
   const lines: string[] = [];
   lines.push("[PROS]");
@@ -142,7 +142,7 @@ export async function PUT(req: NextRequest) {
 
   // Also update the active proposal_version if pros/cons/summary changed
   if (body.pros !== undefined || body.cons !== undefined || body.summary !== undefined) {
-    const rationale = buildRationale(body.pros ?? data.pros ?? "", body.cons ?? data.cons ?? "") || null;
+    const rationale = buildRationale(body.pros ?? data.pros, body.cons ?? data.cons) || null;
     const fullText = body.summary ?? data.summary ?? data.title;
 
     const { error: versionError } = await sb

@@ -384,7 +384,7 @@ export default function MeetingBuilderPage() {
             {/* Slide Order Preview – only proposals */}
             {(() => {
               const allProposals = items.flatMap((item) => item.proposals || []);
-              const sorted = [...allProposals].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+              const sorted = [...allProposals].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0) || a.created_at.localeCompare(b.created_at));
               if (sorted.length === 0) return null;
               return (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4 mb-6">
