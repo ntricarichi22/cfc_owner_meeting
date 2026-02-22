@@ -46,12 +46,24 @@ interface ParsedArticle {
   sections: ParsedSection[];
 }
 
+interface DedupedAnchor {
+  article_num: number;
+  section_num: string;
+  anchor: string;
+}
+
+interface ParseResult {
+  articles: ParsedArticle[];
+  dedupedAnchors: DedupedAnchor[];
+}
+
 // Parse HTML from mammoth into articles and sections
-function parseConstitutionHtml(html: string): ParsedArticle[] {
+function parseConstitutionHtml(html: string): ParseResult {
   const articles: ParsedArticle[] = [];
+  const usedAnchors = new Set<string>();
+  const dedupedAnchors: DedupedAnchor[] = [];
 
   // Split on <h1> tags to find articles
-  // We use a regex to split while capturing the heading content
   const h1Pattern = /<h1>(.*?)<\/h1>/gi;
   const parts: { heading: string; body: string }[] = [];
 
@@ -101,22 +113,34 @@ function parseConstitutionHtml(html: string): ParsedArticle[] {
       });
     }
 
-    let sectionSortOrder = 1;
     for (let j = 0; j < sectionHeadings.length; j++) {
+      // Only create a section when heading matches: Section <number>: <title>
+      const sectionMatch = sectionHeadings[j].heading.match(
+        /^Section\s+(\d+)\s*:\s*(.+)$/i
+      );
+      if (!sectionMatch) continue;
+
       const nextStart =
         j + 1 < sectionHeadings.length
           ? sectionHeadings[j + 1].index
           : part.body.length;
       const sectionBody = part.body.substring(sectionHeadings[j].endIndex, nextStart).trim();
 
-      // Match "Section X: Title" or "Section X – Title"
-      const sectionMatch = sectionHeadings[j].heading.match(
-        /Section\s+(\S+)\s*[:\u2013\u2014\-]\s*(.*)/i
-      );
+      const sectionNum = sectionMatch[1];
+      const sectionTitle = sectionMatch[2].trim();
 
-      const sectionNum = sectionMatch ? sectionMatch[1] : String(sectionSortOrder);
-      const sectionTitle = sectionMatch ? sectionMatch[2].trim() : sectionHeadings[j].heading.trim();
-      const anchor = `article-${articleNum}-section-${sectionNum}`;
+      // Build unique anchor
+      const baseAnchor = `article-${articleNum}-section-${sectionNum}`;
+      let anchor = baseAnchor;
+      if (usedAnchors.has(anchor)) {
+        let suffix = 2;
+        while (usedAnchors.has(`${baseAnchor}-${suffix}`)) {
+          suffix++;
+        }
+        anchor = `${baseAnchor}-${suffix}`;
+        dedupedAnchors.push({ article_num: articleNum, section_num: sectionNum, anchor });
+      }
+      usedAnchors.add(anchor);
 
       sections.push({
         section_num: sectionNum,
@@ -124,16 +148,27 @@ function parseConstitutionHtml(html: string): ParsedArticle[] {
         body: sectionBody,
         anchor,
       });
-      sectionSortOrder++;
     }
 
-    // If no <h2> sections found, treat all body as a single section
-    if (sectionHeadings.length === 0 && part.body.trim()) {
+    // If no matching <h2> sections found, treat all body as a single section
+    if (sections.length === 0 && part.body.trim()) {
+      const baseAnchor = `article-${articleNum}-section-1`;
+      let anchor = baseAnchor;
+      if (usedAnchors.has(anchor)) {
+        let suffix = 2;
+        while (usedAnchors.has(`${baseAnchor}-${suffix}`)) {
+          suffix++;
+        }
+        anchor = `${baseAnchor}-${suffix}`;
+        dedupedAnchors.push({ article_num: articleNum, section_num: "1", anchor });
+      }
+      usedAnchors.add(anchor);
+
       sections.push({
         section_num: "1",
         section_title: articleTitle,
         body: part.body.trim(),
-        anchor: `article-${articleNum}-section-1`,
+        anchor,
       });
     }
 
@@ -146,7 +181,7 @@ function parseConstitutionHtml(html: string): ParsedArticle[] {
     articleSortOrder++;
   }
 
-  return articles;
+  return { articles, dedupedAnchors };
 }
 
 export async function POST(request: Request) {
@@ -183,7 +218,7 @@ export async function POST(request: Request) {
   }
 
   // Parse articles and sections from HTML
-  const articles = parseConstitutionHtml(html);
+  const { articles, dedupedAnchors } = parseConstitutionHtml(html);
   if (articles.length === 0) {
     return NextResponse.json(
       { error: "No articles found in the document. Ensure Article headings use Heading 1 style." },
@@ -243,8 +278,9 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
-    success: true,
-    articlesImported: articles.length,
-    sectionsImported: totalSections,
+    ok: true,
+    articlesInserted: articles.length,
+    sectionsInserted: totalSections,
+    dedupedAnchors,
   });
 }
