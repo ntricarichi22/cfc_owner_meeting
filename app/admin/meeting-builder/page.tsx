@@ -245,8 +245,14 @@ export default function MeetingBuilderPage() {
   /* ---------- save proposal ---------- */
   const cleanRichText = (html: string | null | undefined): string | null => {
     if (!html) return null;
-    const stripped = html.replace(/<[^>]*>/g, "").trim();
-    return stripped.length > 0 ? html : null;
+    // Iteratively strip tags to handle nested incomplete tags
+    let stripped = html;
+    let prev = "";
+    while (stripped !== prev) {
+      prev = stripped;
+      stripped = stripped.replace(/<[^>]*>/g, "");
+    }
+    return stripped.trim().length > 0 ? html : null;
   };
 
   const handleSaveProposal = async () => {

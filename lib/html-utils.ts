@@ -8,9 +8,17 @@ export function isHtmlContent(text: string | null | undefined): boolean {
 
 /**
  * Check if an HTML string has no visible text content.
+ * Note: This is NOT used for sanitization (DOMPurify handles that).
+ * It only checks whether there is any text after removing tags.
  */
 export function isEmptyHtml(text: string | null | undefined): boolean {
   if (!text) return true;
-  const stripped = text.replace(/<[^>]*>/g, "").trim();
-  return stripped.length === 0;
+  // Iteratively strip tags to handle nested incomplete tags
+  let stripped = text;
+  let prev = "";
+  while (stripped !== prev) {
+    prev = stripped;
+    stripped = stripped.replace(/<[^>]*>/g, "");
+  }
+  return stripped.trim().length === 0;
 }
