@@ -18,6 +18,21 @@ import type {
 const CONSTITUTION_LINKS_PREFIX = "[CONSTITUTION_LINKS:";
 const MAX_VISIBLE_SECTIONS = 24;
 
+function parseRationale(rationale: string | null | undefined) {
+  const pros: string[] = [];
+  const cons: string[] = [];
+  if (!rationale) return { pros, cons };
+  let section: "pros" | "cons" | null = null;
+  for (const line of rationale.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed === "[PROS]") { section = "pros"; continue; }
+    if (trimmed === "[CONS]") { section = "cons"; continue; }
+    if (section === "pros" && trimmed) pros.push(trimmed.replace(/^-\s*/, ""));
+    if (section === "cons" && trimmed) cons.push(trimmed.replace(/^-\s*/, ""));
+  }
+  return { pros, cons };
+}
+
 function parseConstitutionLinks(summary: string | null | undefined) {
   if (!summary) return [];
   const match = summary.match(/\[CONSTITUTION_LINKS:\s*([^\]]*)\]/i);
@@ -299,21 +314,6 @@ export default function MeetingOwnerPage() {
     router.push("/");
   };
 
-  const handleEditableKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "Tab") {
-      e.preventDefault();
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount > 0) {
-        const range = sel.getRangeAt(0);
-        range.deleteContents();
-        range.insertNode(document.createTextNode("\u00A0\u00A0\u00A0\u00A0"));
-        range.collapse(false);
-      }
-    }
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-      e.stopPropagation();
-    }
-  };
 
   if (sessionLoading) {
     return (
@@ -442,21 +442,24 @@ export default function MeetingOwnerPage() {
                     </div>
                   </header>
 
-                  {/* Three editable cards: Details · Pros · Cons */}
+                  {/* Three cards: Details · Pros · Cons */}
+                  {(() => {
+                    const rationaleData = parseRationale(activeVersion?.rationale);
+                    return (
                   <div className="flex gap-4 mt-4 flex-1 min-h-0">
                     {/* Details card */}
                     <div className="flex-1 flex flex-col min-w-0">
                       <div
-                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-auto text-sm text-white/90 focus:outline-none"
+                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-auto text-sm text-white/90"
                         style={{ boxShadow: "0 0 24px 4px rgba(218,165,32,0.18), 0 0 48px 8px rgba(218,165,32,0.08)" }}
-                        contentEditable
-                        suppressContentEditableWarning
-                        role="textbox"
-                        aria-multiline="true"
                         aria-label="Proposal details"
-                        onKeyDown={handleEditableKeyDown}
-                        data-placeholder="Type proposal details here…"
-                      />
+                      >
+                        {summaryText ? (
+                          <p className="whitespace-pre-wrap">{summaryText}</p>
+                        ) : (
+                          <p className="text-white/30 italic">No details added yet.</p>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-3 justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white">
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -472,16 +475,20 @@ export default function MeetingOwnerPage() {
                     {/* Pros card */}
                     <div className="flex-1 flex flex-col min-w-0">
                       <div
-                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-auto text-sm text-white/90 focus:outline-none"
+                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-auto text-sm text-white/90"
                         style={{ boxShadow: "0 0 24px 4px rgba(74,222,128,0.18), 0 0 48px 8px rgba(74,222,128,0.08)" }}
-                        contentEditable
-                        suppressContentEditableWarning
-                        role="textbox"
-                        aria-multiline="true"
                         aria-label="Proposal pros"
-                        onKeyDown={handleEditableKeyDown}
-                        data-placeholder="Type pros here…"
-                      />
+                      >
+                        {rationaleData.pros.length > 0 ? (
+                          <ul className="list-disc list-inside space-y-1">
+                            {rationaleData.pros.map((line, i) => (
+                              <li key={i}>{line}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-white/30 italic">Add pros...</p>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-3 justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white">
                           <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
@@ -494,16 +501,20 @@ export default function MeetingOwnerPage() {
                     {/* Cons card */}
                     <div className="flex-1 flex flex-col min-w-0">
                       <div
-                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-auto text-sm text-white/90 focus:outline-none"
+                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-auto text-sm text-white/90"
                         style={{ boxShadow: "0 0 24px 4px rgba(248,113,113,0.18), 0 0 48px 8px rgba(248,113,113,0.08)" }}
-                        contentEditable
-                        suppressContentEditableWarning
-                        role="textbox"
-                        aria-multiline="true"
                         aria-label="Proposal cons"
-                        onKeyDown={handleEditableKeyDown}
-                        data-placeholder="Type cons here…"
-                      />
+                      >
+                        {rationaleData.cons.length > 0 ? (
+                          <ul className="list-disc list-inside space-y-1">
+                            {rationaleData.cons.map((line, i) => (
+                              <li key={i}>{line}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-white/30 italic">Add cons...</p>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-3 justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white">
                           <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
@@ -513,6 +524,8 @@ export default function MeetingOwnerPage() {
                       </div>
                     </div>
                   </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
