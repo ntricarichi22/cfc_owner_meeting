@@ -8,7 +8,6 @@ import VotingPanel from "@/components/VotingPanel";
 import { COMMISSIONER_TEAM_NAME } from "@/lib/constants";
 import type {
   Meeting,
-  AgendaItem,
   Proposal,
   ProposalVersion,
   Amendment,
@@ -66,7 +65,6 @@ export default function MeetingOwnerPage() {
   const { session, loading: sessionLoading, isCommissioner, logout } = useSession();
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [items, setItems] = useState<AgendaItem[]>([]);
   const [proposals, setProposals] = useState<(Proposal & { proposal_versions?: ProposalVersion[] })[]>([]);
   const [amendments, setAmendments] = useState<Amendment[]>([]);
   const [constitutionSections, setConstitutionSections] = useState<ConstitutionSection[]>([]);
@@ -83,16 +81,32 @@ export default function MeetingOwnerPage() {
   const [showVotingModal, setShowVotingModal] = useState(false);
 
   const canSubmitAmendment = session?.team_name === COMMISSIONER_TEAM_NAME;
-  const slideCount = items.length + 1;
+
+  // Build slide list from proposals sorted by order_index (not agenda items)
+  const sortedProposals = [...proposals].sort(
+    (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0) || a.created_at.localeCompare(b.created_at)
+  );
+  const slideCount = sortedProposals.length + 1;
   const slideParam = Number(searchParams.get("slide") ?? "0");
   const parsedSlide = Number.isFinite(slideParam) && slideParam >= 0 ? Math.floor(slideParam) : 0;
   const currentSlide = Math.min(parsedSlide, Math.max(0, slideCount - 1));
-  const currentItem = currentSlide > 0 ? items[currentSlide - 1] : null;
-  const proposal = proposals.find((p) => p.agenda_item_id === currentItem?.id) ?? null;
+  const proposal = currentSlide > 0 ? sortedProposals[currentSlide - 1] ?? null : null;
   const activeVersion = proposal?.proposal_versions?.find((v) => v.is_active) ?? null;
   const summaryText = summaryWithoutConstitutionLinks(proposal?.summary);
   const constitutionLinks = parseConstitutionLinks(proposal?.summary);
-  const rationaleData = parseRationale(activeVersion?.rationale);
+  // Prefer direct pros/cons fields; fall back to rationale parsing for legacy data
+  const rationaleData = (() => {
+    const directPros = proposal?.pros
+      ? proposal.pros.split("\n").map((l) => l.trim().replace(/^-\s*/, "")).filter(Boolean)
+      : [];
+    const directCons = proposal?.cons
+      ? proposal.cons.split("\n").map((l) => l.trim().replace(/^-\s*/, "")).filter(Boolean)
+      : [];
+    if (directPros.length > 0 || directCons.length > 0) {
+      return { pros: directPros, cons: directCons };
+    }
+    return parseRationale(activeVersion?.rationale);
+  })();
   const previousVoteStatusRef = useRef<string | null>(null);
 
   const changeSlide = useCallback((nextSlide: number) => {
@@ -123,15 +137,7 @@ export default function MeetingOwnerPage() {
       setMeeting(m);
       setMeetingNotFound(false);
 
-      const [itemsRes, proposalsRes] = await Promise.all([
-        fetch(`/api/agenda-items?meetingId=${m.id}`),
-        fetch(`/api/proposals?meetingId=${m.id}`),
-      ]);
-
-      if (itemsRes.ok) {
-        const agendaItems: AgendaItem[] = await itemsRes.json();
-        setItems(agendaItems);
-      }
+      const proposalsRes = await fetch(`/api/proposals?meetingId=${m.id}`);
 
       if (proposalsRes.ok) {
         setProposals(await proposalsRes.json());
@@ -410,17 +416,17 @@ export default function MeetingOwnerPage() {
           </section>
         ) : (
           <section className="h-full flex flex-col px-8 py-6 md:px-14 md:py-8 overflow-hidden">
-              {currentItem?.category === "proposal" || currentItem?.category === "Article" ? (
+              {proposal && (proposal.proposal_type || "proposal") !== "admin" ? (
                 <div className="flex flex-col h-full min-h-0">
                   {/* Proposal header card */}
                   <header className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-5 flex-shrink-0 flex flex-col justify-between">
                     <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">
-                      Proposal #{currentSlide}: {currentItem?.title || "Untitled Proposal"}
+                      Proposal #{currentSlide}: {proposal?.title || "Untitled Proposal"}
                     </h1>
                     <div className="flex flex-wrap items-center justify-between gap-4 mt-4">
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9]">
-                          Proposed by: Commissioner
+                          Proposed by: {proposal?.proposed_by || "Commissioner"}
                         </span>
                         <span className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9]">
                           Effective Date: {proposal?.effective_date || "TBD"}
@@ -526,7 +532,7 @@ export default function MeetingOwnerPage() {
               ) : (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
                   <h3 className="text-xs uppercase tracking-[0.2em] text-white/40">Admin Slide</h3>
-                  <p className="text-3xl mt-3 font-medium">{currentItem?.title || "General agenda item"}</p>
+                  <p className="text-3xl mt-3 font-medium">{proposal?.title || "General agenda item"}</p>
                   <p className="text-white/60 mt-3 max-w-3xl">This item is discussion-only. Voting is not required for this slide.</p>
                 </div>
               )}
@@ -540,7 +546,7 @@ export default function MeetingOwnerPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-white/50">Voting in progress</p>
-                <p className="text-lg font-medium">{currentItem?.title || "Current proposal"}</p>
+                <p className="text-lg font-medium">{proposal?.title || "Current proposal"}</p>
               </div>
               <button onClick={() => setShowVotingModal(false)} className="text-white/60 hover:text-white text-sm">Close</button>
             </div>

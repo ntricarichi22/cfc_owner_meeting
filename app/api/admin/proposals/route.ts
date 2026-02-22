@@ -11,6 +11,22 @@ async function requireCommissionerSession() {
   return session;
 }
 
+function buildRationale(pros: string | null | undefined, cons: string | null | undefined): string {
+  const prosLines = (pros || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const consLines = (cons || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  if (prosLines.length === 0 && consLines.length === 0) return "";
+  const lines: string[] = [];
+  lines.push("[PROS]");
+  for (const line of prosLines) {
+    lines.push(line.startsWith("-") ? line : `- ${line}`);
+  }
+  lines.push("[CONS]");
+  for (const line of consLines) {
+    lines.push(line.startsWith("-") ? line : `- ${line}`);
+  }
+  return lines.join("\n");
+}
+
 export async function POST(req: NextRequest) {
   const session = await requireCommissionerSession();
   if (!session) {
@@ -26,6 +42,8 @@ export async function POST(req: NextRequest) {
   }
 
   const sb = getSupabaseServer();
+
+  // Insert proposal with status 'open' (immediately active)
   const { data, error } = await sb
     .from("proposals")
     .insert({
@@ -34,7 +52,13 @@ export async function POST(req: NextRequest) {
       title: body.title,
       summary: body.summary || null,
       effective_date: body.effective_date || null,
-      status: "draft",
+      status: "open",
+      order_index: body.order_index ?? 0,
+      proposed_by: body.proposed_by || null,
+      proposal_type: body.proposal_type || "proposal",
+      pros: body.pros || null,
+      cons: body.cons || null,
+      article_sections: body.article_sections || [],
     })
     .select()
     .single();
@@ -44,6 +68,23 @@ export async function POST(req: NextRequest) {
       { error: "Failed to create proposal", details: error.message, code: error.code },
       { status: 500 }
     );
+  }
+
+  // Auto-create a proposal_version (v1) for compatibility with voting system
+  const rationale = buildRationale(body.pros || "", body.cons || "") || null;
+  const { error: versionError } = await sb
+    .from("proposal_versions")
+    .insert({
+      proposal_id: data.id,
+      version_number: 1,
+      full_text: body.summary || body.title,
+      rationale,
+      created_by_team: session.team_name,
+      is_active: true,
+    });
+
+  if (versionError) {
+    console.error("Failed to auto-create proposal version:", versionError.message);
   }
 
   return NextResponse.json(data, { status: 201 });
@@ -64,6 +105,12 @@ export async function PUT(req: NextRequest) {
   if (body.title !== undefined) updates.title = body.title;
   if (body.summary !== undefined) updates.summary = body.summary;
   if (body.effective_date !== undefined) updates.effective_date = body.effective_date;
+  if (body.order_index !== undefined) updates.order_index = body.order_index;
+  if (body.proposed_by !== undefined) updates.proposed_by = body.proposed_by;
+  if (body.proposal_type !== undefined) updates.proposal_type = body.proposal_type;
+  if (body.pros !== undefined) updates.pros = body.pros;
+  if (body.cons !== undefined) updates.cons = body.cons;
+  if (body.article_sections !== undefined) updates.article_sections = body.article_sections;
   if (body.status !== undefined) {
     if (!PROPOSAL_STATUSES.includes(body.status)) {
       return NextResponse.json(
@@ -91,6 +138,22 @@ export async function PUT(req: NextRequest) {
       { error: "Failed to update proposal", details: error.message, code: error.code },
       { status: 500 }
     );
+  }
+
+  // Also update the active proposal_version if pros/cons/summary changed
+  if (body.pros !== undefined || body.cons !== undefined || body.summary !== undefined) {
+    const rationale = buildRationale(body.pros ?? data.pros, body.cons ?? data.cons) || null;
+    const fullText = body.summary ?? data.summary ?? data.title;
+
+    const { error: versionError } = await sb
+      .from("proposal_versions")
+      .update({ full_text: fullText, rationale })
+      .eq("proposal_id", body.id)
+      .eq("is_active", true);
+
+    if (versionError) {
+      console.error("Failed to update proposal version:", versionError.message);
+    }
   }
 
   return NextResponse.json(data);
