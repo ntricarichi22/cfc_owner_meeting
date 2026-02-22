@@ -73,6 +73,25 @@ function constitutionAnchorId(sectionKey: string) {
   return `const-${sectionKey.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 }
 
+function constitutionChipLabel(sec: ConstitutionSectionInfo): string {
+  const num = sec.section_num || sec.section_key || "";
+  const title = sec.section_title || sec.title || "";
+  const artLabel = sec.article_title
+    ? `Art. ${sec.article_num} – ${sec.article_title}`
+    : sec.article_num
+      ? `Art. ${sec.article_num}`
+      : "";
+  if (artLabel && title) return `${artLabel}, §${num} ${title}`;
+  if (artLabel) return `${artLabel}, §${num}`;
+  if (title) return `§${num} ${title}`;
+  return `Constitution §${num}`;
+}
+
+function constitutionChipHref(sec: ConstitutionSectionInfo): string {
+  const fragment = sec.anchor || sec.id;
+  return fragment ? `/constitution#${fragment}` : "/constitution";
+}
+
 function ConstitutionChips({ sections }: { sections: ConstitutionSectionInfo[] }) {
   if (sections.length > 0) {
     return (
@@ -80,12 +99,12 @@ function ConstitutionChips({ sections }: { sections: ConstitutionSectionInfo[] }
         {sections.map((sec) => (
           <a
             key={sec.id}
-            href={`/constitution/${sec.anchor || sec.id}`}
+            href={constitutionChipHref(sec)}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
           >
-            §{sec.section_num || sec.section_key} {sec.section_title || sec.title} ↗
+            {constitutionChipLabel(sec)} ↗
           </a>
         ))}
       </>
