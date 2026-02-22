@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   // Insert a new team_sessions row
   const { data: createdSession, error: insertError } = await sb
     .from("team_sessions")
-    .insert({ team_id: teamId, team_name: teamName, last_seen_at: new Date().toISOString() })
+    .insert({ team_id: teamId, team_name: teamName })
     .select("id")
     .single();
 

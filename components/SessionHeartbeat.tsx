@@ -9,9 +9,9 @@ export default function SessionHeartbeat() {
     let timer: ReturnType<typeof setInterval> | null = null;
 
     function ping() {
-      // Only ping if the session cookie exists (non-httpOnly name check
-      // isn't possible, so we just fire the request; the server is a no-op
-      // when no session cookie is present).
+      // Only ping if the session cookie exists (HttpOnly cookie check
+      // isn't possible client-side, so we just fire the request; the server
+      // is a no-op when no session cookie is present).
       fetch("/api/session/ping", { method: "POST" }).catch(() => {});
     }
 

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import SessionHeartbeat from "@/components/SessionAutoRelease";
+import SessionHeartbeat from "@/components/SessionHeartbeat";
 
 export const metadata: Metadata = {
   title: "CFC Owners Meeting",
