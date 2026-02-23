@@ -143,6 +143,8 @@ export default function MeetingOwnerPage() {
   const [meetingNotFound, setMeetingNotFound] = useState(false);
   const [showVotingModal, setShowVotingModal] = useState(false);
   const [startVotingError, setStartVotingError] = useState<string | null>(null);
+  const [voteSessionStatus, setVoteSessionStatus] = useState<string>("not_open");
+  const [voteSessionPassed, setVoteSessionPassed] = useState<boolean | null>(null);
 
   const canSubmitAmendment = session?.team_name === COMMISSIONER_TEAM_NAME;
 
@@ -289,6 +291,8 @@ export default function MeetingOwnerPage() {
     if (!activeVersion?.id) {
       previousVoteStatusRef.current = null;
       setShowVotingModal(false);
+      setVoteSessionStatus("not_open");
+      setVoteSessionPassed(null);
       return;
     }
 
@@ -296,6 +300,8 @@ export default function MeetingOwnerPage() {
     if ((proposal?.proposal_type || "proposal") === "admin") {
       previousVoteStatusRef.current = null;
       setShowVotingModal(false);
+      setVoteSessionStatus("not_open");
+      setVoteSessionPassed(null);
       return;
     }
 
@@ -306,9 +312,11 @@ export default function MeetingOwnerPage() {
         const data = await res.json();
         const status = String(data?.status ?? "not_open");
         const prev = previousVoteStatusRef.current;
-        // Auto-open modal when voting becomes active (open/closed/tallied)
+        setVoteSessionStatus(status);
+        setVoteSessionPassed(data?.passed ?? null);
+        // Auto-open modal when voting becomes active (open or closed only, not tallied)
         if (
-          (status === "open" || status === "tallied") &&
+          (status === "open" || status === "closed") &&
           prev !== status
         ) {
           setShowVotingModal(true);
@@ -552,7 +560,18 @@ export default function MeetingOwnerPage() {
                         </span>
                         <ConstitutionChips sections={linkedSections} />
                       </div>
-                      {isCommissioner && (
+                      {voteSessionStatus === "tallied" ? (
+                        <button
+                          onClick={() => setShowVotingModal(true)}
+                          className={`rounded-lg px-6 py-3 text-base font-semibold text-white transition-colors ${
+                            voteSessionPassed
+                              ? "bg-green-600 hover:bg-green-500"
+                              : "bg-red-600 hover:bg-red-500"
+                          }`}
+                        >
+                          {voteSessionPassed ? "APPROVED" : "REJECTED"}
+                        </button>
+                      ) : isCommissioner ? (
                         <div className="flex flex-col items-end gap-1">
                           <button
                             onClick={handleStartVoting}
@@ -564,7 +583,7 @@ export default function MeetingOwnerPage() {
                             <p className="text-xs text-red-400">{startVotingError}</p>
                           )}
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </header>
 
