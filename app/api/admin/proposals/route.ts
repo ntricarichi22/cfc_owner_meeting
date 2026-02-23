@@ -76,8 +76,8 @@ export async function POST(req: NextRequest) {
       order_index: body.order_index ?? 0,
       proposed_by: body.proposed_by || null,
       proposal_type: body.proposal_type || "proposal",
-      pros: body.pros || null,
-      cons: body.cons || null,
+      pros: body.pros ?? '',
+      cons: body.cons ?? '',
       article_sections: body.article_sections || [],
     })
     .select()
@@ -128,8 +128,8 @@ export async function PUT(req: NextRequest) {
   if (body.order_index !== undefined) updates.order_index = body.order_index;
   if (body.proposed_by !== undefined) updates.proposed_by = body.proposed_by;
   if (body.proposal_type !== undefined) updates.proposal_type = body.proposal_type;
-  if (body.pros !== undefined) updates.pros = body.pros;
-  if (body.cons !== undefined) updates.cons = body.cons;
+  if (body.pros !== undefined) updates.pros = body.pros ?? '';
+  if (body.cons !== undefined) updates.cons = body.cons ?? '';
   if (body.article_sections !== undefined) updates.article_sections = body.article_sections;
   if (body.status !== undefined) {
     if (!PROPOSAL_STATUSES.includes(body.status)) {
