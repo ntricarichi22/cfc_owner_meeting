@@ -15,6 +15,7 @@ export default function Nav({ teamName, isCommissioner, onLogout }: NavProps) {
     { href: "/meeting", label: "Current Meeting", active: pathname.startsWith("/meeting") },
     { href: "/past-meetings", label: "Meeting History", active: pathname.startsWith("/past-meetings") },
     { href: "/constitution", label: "Constitution", active: pathname.startsWith("/constitution") },
+    ...(isCommissioner ? [{ href: "/commish", label: "Commish Tools", active: pathname === "/commish" }] : []),
   ];
 
   return (
