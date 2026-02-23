@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import DOMPurify from "isomorphic-dompurify";
 import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
-import VotingPanel from "@/components/VotingPanel";
+import VotingModal from "@/components/VotingModal";
 import { COMMISSIONER_TEAM_NAME } from "@/lib/constants";
 import { isHtmlContent, isEmptyHtml } from "@/lib/html-utils";
 import type {
@@ -142,6 +142,7 @@ export default function MeetingOwnerPage() {
   const [error, setError] = useState<string | null>(null);
   const [meetingNotFound, setMeetingNotFound] = useState(false);
   const [showVotingModal, setShowVotingModal] = useState(false);
+  const [startVotingError, setStartVotingError] = useState<string | null>(null);
 
   const canSubmitAmendment = session?.team_name === COMMISSIONER_TEAM_NAME;
 
@@ -291,16 +292,29 @@ export default function MeetingOwnerPage() {
       return;
     }
 
+    // Never show voting modal on admin slides
+    if ((proposal?.proposal_type || "proposal") === "admin") {
+      previousVoteStatusRef.current = null;
+      setShowVotingModal(false);
+      return;
+    }
+
     const pollVoting = async () => {
       try {
         const res = await fetch(`/api/votes?proposalVersionId=${activeVersion.id}`);
         if (!res.ok) return;
         const data = await res.json();
         const status = String(data?.status ?? "not_open");
-        if (status === "open" && previousVoteStatusRef.current !== "open") {
+        const prev = previousVoteStatusRef.current;
+        // Auto-open modal when voting becomes active (open/closed/tallied)
+        if (
+          (status === "open" || status === "tallied") &&
+          prev !== status
+        ) {
           setShowVotingModal(true);
         }
-        if (status !== "open") {
+        // Auto-close modal when voting goes back to not_open
+        if (status === "not_open") {
           setShowVotingModal(false);
         }
         previousVoteStatusRef.current = status;
@@ -312,7 +326,7 @@ export default function MeetingOwnerPage() {
     pollVoting();
     const interval = setInterval(pollVoting, 2000);
     return () => clearInterval(interval);
-  }, [activeVersion?.id]);
+  }, [activeVersion?.id, proposal?.proposal_type]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -404,6 +418,26 @@ export default function MeetingOwnerPage() {
   const handleExitMeeting = async () => {
     await fetch("/api/session/release", { method: "POST" });
     router.push("/");
+  };
+
+  const handleStartVoting = async () => {
+    if (!activeVersion?.id) return;
+    setStartVotingError(null);
+    try {
+      const res = await fetch("/api/voting/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proposalVersionId: activeVersion.id }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        setStartVotingError(body?.error || "Failed to open voting");
+        return;
+      }
+      setShowVotingModal(true);
+    } catch {
+      setStartVotingError("Network error. Could not start voting.");
+    }
   };
 
 
@@ -518,12 +552,19 @@ export default function MeetingOwnerPage() {
                         </span>
                         <ConstitutionChips sections={linkedSections} />
                       </div>
-                      <button
-                        onClick={() => setShowVotingModal(true)}
-                        className="rounded-lg bg-[#0ea5e9] px-6 py-3 text-base font-semibold text-white hover:bg-[#0ea5e9]/90 transition-colors"
-                      >
-                        Start Voting
-                      </button>
+                      {isCommissioner && (
+                        <div className="flex flex-col items-end gap-1">
+                          <button
+                            onClick={handleStartVoting}
+                            className="rounded-lg bg-[#0ea5e9] px-6 py-3 text-base font-semibold text-white hover:bg-[#0ea5e9]/90 transition-colors"
+                          >
+                            Start Voting
+                          </button>
+                          {startVotingError && (
+                            <p className="text-xs text-red-400">{startVotingError}</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </header>
 
@@ -661,18 +702,12 @@ export default function MeetingOwnerPage() {
       </main>
 
       {showVotingModal && activeVersion?.id && (proposal?.proposal_type || "proposal") !== "admin" && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-xl rounded-2xl border border-white/20 bg-[#0b0b0b] p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-white/50">Voting in progress</p>
-                <p className="text-lg font-medium">{proposal?.title || "Current proposal"}</p>
-              </div>
-              <button onClick={() => setShowVotingModal(false)} className="text-white/60 hover:text-white text-sm">Close</button>
-            </div>
-            <VotingPanel proposalVersionId={activeVersion.id} isCommissioner={isCommissioner} />
-          </div>
-        </div>
+        <VotingModal
+          proposalVersionId={activeVersion.id}
+          isCommissioner={isCommissioner}
+          proposalTitle={proposal?.title || "Current proposal"}
+          onClose={() => setShowVotingModal(false)}
+        />
       )}
     </div>
   );
