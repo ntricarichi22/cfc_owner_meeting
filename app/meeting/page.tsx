@@ -660,7 +660,7 @@ export default function MeetingOwnerPage() {
         )}
       </main>
 
-      {showVotingModal && activeVersion?.id && (
+      {showVotingModal && activeVersion?.id && (proposal?.proposal_type || "proposal") !== "admin" && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-xl rounded-2xl border border-white/20 bg-[#0b0b0b] p-6 space-y-4">
             <div className="flex items-center justify-between">
