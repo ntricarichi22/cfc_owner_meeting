@@ -308,7 +308,7 @@ export default function MeetingOwnerPage() {
         const prev = previousVoteStatusRef.current;
         // Auto-open modal when voting becomes active (open/closed/tallied)
         if (
-          (status === "open" || status === "closed" || status === "tallied") &&
+          (status === "open" || status === "tallied") &&
           prev !== status
         ) {
           setShowVotingModal(true);
@@ -324,7 +324,7 @@ export default function MeetingOwnerPage() {
     };
 
     pollVoting();
-    const interval = setInterval(pollVoting, 1500);
+    const interval = setInterval(pollVoting, 2000);
     return () => clearInterval(interval);
   }, [activeVersion?.id, proposal?.proposal_type]);
 

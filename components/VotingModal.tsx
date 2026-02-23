@@ -239,7 +239,7 @@ export default function VotingModal({
               </>
             )}
 
-            <p className="text-xs text-white/30">
+            <p className="text-xs text-white/30" aria-label="Number of votes submitted">
               Votes submitted: {data.submittedCount ?? 0}
             </p>
           </div>
@@ -304,7 +304,7 @@ export default function VotingModal({
             </>
           )}
 
-          <p className="text-xs text-white/30">
+          <p className="text-xs text-white/30" aria-label="Number of votes submitted">
             Votes submitted: {data.submittedCount ?? 0}
           </p>
         </div>
