@@ -228,8 +228,18 @@ export default function MeetingBuilderPage() {
     setFormData({ ...emptyForm });
   };
 
+  const isAdmin = formData.proposal_type === "admin";
+
   const updateField = <K extends keyof ProposalFormData>(key: K, value: ProposalFormData[K]) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [key]: value };
+      // When switching to admin, clear pros/cons
+      if (key === "proposal_type" && value === "admin") {
+        next.pros = "";
+        next.cons = "";
+      }
+      return next;
+    });
   };
 
   const toggleArticleSection = (sectionId: string) => {
@@ -257,6 +267,19 @@ export default function MeetingBuilderPage() {
 
   const handleSaveProposal = async () => {
     if (!meeting || !formData.title.trim()) return;
+
+    // Validate pros/cons for proposal type
+    if (formData.proposal_type === "proposal") {
+      if (!cleanRichText(formData.pros) || !cleanRichText(formData.cons)) {
+        setError("Pros and Cons are required for proposal slides.");
+        return;
+      }
+    }
+
+    // For admin slides, always save empty strings for pros/cons
+    const pros = formData.proposal_type === "admin" ? "" : cleanRichText(formData.pros);
+    const cons = formData.proposal_type === "admin" ? "" : cleanRichText(formData.cons);
+
     setSaving(true);
     try {
       if (editingProposalId) {
@@ -273,8 +296,8 @@ export default function MeetingBuilderPage() {
             effective_date: formData.effective_date || null,
             article_sections: formData.article_sections,
             summary: cleanRichText(formData.summary),
-            pros: cleanRichText(formData.pros),
-            cons: cleanRichText(formData.cons),
+            pros,
+            cons,
           }),
         });
         if (!res.ok) {
@@ -297,8 +320,8 @@ export default function MeetingBuilderPage() {
             effective_date: formData.effective_date || null,
             article_sections: formData.article_sections,
             summary: cleanRichText(formData.summary),
-            pros: cleanRichText(formData.pros),
-            cons: cleanRichText(formData.cons),
+            pros,
+            cons,
           }),
         });
         if (!res.ok) {
@@ -486,7 +509,7 @@ export default function MeetingBuilderPage() {
                       onClick={() => openAddModal(item.id, item.title)}
                       className="text-xs text-[#0ea5e9] hover:underline"
                     >
-                      + Add New Proposal
+                      + Add New Slide
                     </button>
                   </div>
                 </div>
@@ -507,7 +530,7 @@ export default function MeetingBuilderPage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-semibold">
-                  {editingProposalId ? "Edit Proposal" : "New Proposal"}
+                  {editingProposalId ? "Edit Slide" : "Add New Slide"}
                 </h3>
                 <p className="text-xs text-white/40 mt-1">{modalArticleTitle}</p>
               </div>
@@ -618,35 +641,39 @@ export default function MeetingBuilderPage() {
                 )}
               </div>
 
-              {/* Details */}
+              {/* Details / Content */}
               <div>
-                <label className="text-xs text-white/50 block mb-1">Details</label>
+                <label className="text-xs text-white/50 block mb-1">
+                  {isAdmin ? "Content" : "Details"}
+                </label>
                 <RichTextEditor
                   value={formData.summary}
                   onChange={(val) => updateField("summary", val)}
-                  placeholder="Describe the proposal details..."
+                  placeholder={isAdmin ? "Enter slide content..." : "Describe the proposal details..."}
                 />
               </div>
 
-              {/* Pros & Cons (side by side) */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-white/50 block mb-1">Pros</label>
-                  <RichTextEditor
-                    value={formData.pros}
-                    onChange={(val) => updateField("pros", val)}
-                    placeholder="Enter pros..."
-                  />
+              {/* Pros & Cons (side by side) – only for proposal type */}
+              {!isAdmin && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-white/50 block mb-1">Pros</label>
+                    <RichTextEditor
+                      value={formData.pros}
+                      onChange={(val) => updateField("pros", val)}
+                      placeholder="Enter pros..."
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-white/50 block mb-1">Cons</label>
+                    <RichTextEditor
+                      value={formData.cons}
+                      onChange={(val) => updateField("cons", val)}
+                      placeholder="Enter cons..."
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs text-white/50 block mb-1">Cons</label>
-                  <RichTextEditor
-                    value={formData.cons}
-                    onChange={(val) => updateField("cons", val)}
-                    placeholder="Enter cons..."
-                  />
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Modal actions */}
