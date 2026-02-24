@@ -193,15 +193,6 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
           content: 'Trebuchet MS';
           font-family: "Trebuchet MS", sans-serif;
         }
-        /* Font family rendering in editor */
-        .ql-font-serif { font-family: serif; }
-        .ql-font-monospace { font-family: monospace; }
-        .ql-font-Arial { font-family: Arial, sans-serif; }
-        .ql-font-Georgia { font-family: Georgia, serif; }
-        .ql-font-Times-New-Roman { font-family: "Times New Roman", serif; }
-        .ql-font-Courier-New { font-family: "Courier New", monospace; }
-        .ql-font-Verdana { font-family: Verdana, sans-serif; }
-        .ql-font-Trebuchet-MS { font-family: "Trebuchet MS", sans-serif; }
         /* Font size picker labels */
         .rich-text-editor .ql-snow .ql-picker.ql-size .ql-picker-label::before,
         .rich-text-editor .ql-snow .ql-picker.ql-size .ql-picker-item::before {
@@ -247,17 +238,6 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
         .rich-text-editor .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="36px"]::before {
           content: '36px';
         }
-        /* Font size rendering in editor */
-        .ql-size-10px { font-size: 10px; }
-        .ql-size-12px { font-size: 12px; }
-        .ql-size-14px { font-size: 14px; }
-        .ql-size-16px { font-size: 16px; }
-        .ql-size-18px { font-size: 18px; }
-        .ql-size-20px { font-size: 20px; }
-        .ql-size-24px { font-size: 24px; }
-        .ql-size-28px { font-size: 28px; }
-        .ql-size-32px { font-size: 32px; }
-        .ql-size-36px { font-size: 36px; }
         /* Header picker labels */
         .rich-text-editor .ql-snow .ql-picker.ql-header .ql-picker-label::before,
         .rich-text-editor .ql-snow .ql-picker.ql-header .ql-picker-item::before {
