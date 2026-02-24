@@ -592,7 +592,7 @@ export default function MeetingOwnerPage() {
                     {/* Details card */}
                     <div className="flex-1 flex flex-col min-w-0">
                       <div
-                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-auto text-sm text-white/90"
+                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-y-auto overflow-x-hidden break-words text-sm text-white/90"
                         style={{ boxShadow: "0 0 24px 4px rgba(218,165,32,0.18), 0 0 48px 8px rgba(218,165,32,0.08)" }}
                         aria-label="Proposal details"
                       >
@@ -624,7 +624,7 @@ export default function MeetingOwnerPage() {
                     {/* Pros card */}
                     <div className="flex-1 flex flex-col min-w-0">
                       <div
-                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-auto text-sm text-white/90"
+                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-y-auto overflow-x-hidden break-words text-sm text-white/90"
                         style={{ boxShadow: "0 0 24px 4px rgba(74,222,128,0.18), 0 0 48px 8px rgba(74,222,128,0.08)" }}
                         aria-label="Proposal pros"
                       >
@@ -655,7 +655,7 @@ export default function MeetingOwnerPage() {
                     {/* Cons card */}
                     <div className="flex-1 flex flex-col min-w-0">
                       <div
-                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-auto text-sm text-white/90"
+                        className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-y-auto overflow-x-hidden break-words text-sm text-white/90"
                         style={{ boxShadow: "0 0 24px 4px rgba(248,113,113,0.18), 0 0 48px 8px rgba(248,113,113,0.08)" }}
                         aria-label="Proposal cons"
                       >
