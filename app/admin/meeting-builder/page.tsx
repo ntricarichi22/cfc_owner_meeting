@@ -480,14 +480,11 @@ export default function MeetingBuilderPage() {
                                   Live
                                 </span>
                               </div>
-                              {p.summary && (
-                                <p className="text-sm text-white/60 mt-2 line-clamp-2">{p.summary}</p>
-                              )}
                             </div>
                             <div className="flex gap-2 flex-shrink-0 ml-4">
                               <button
                                 onClick={() => openEditModal(p, item.title)}
-                                className="text-xs text-[#0ea5e9] hover:underline"
+                                className="text-xs rounded-lg border border-[#0ea5e9]/40 bg-[#0ea5e9]/10 text-[#0ea5e9] px-3 py-1 hover:bg-[#0ea5e9]/20 transition"
                               >
                                 Edit
                               </button>
@@ -533,6 +530,11 @@ export default function MeetingBuilderPage() {
                   {editingProposalId ? "Edit Slide" : "Add New Slide"}
                 </h3>
                 <p className="text-xs text-white/40 mt-1">{modalArticleTitle}</p>
+                {editingProposalId && (
+                  <p className="text-xs text-yellow-400/80 mt-1">
+                    ⚡ This proposal is live — changes will take effect immediately.
+                  </p>
+                )}
               </div>
               <button onClick={closeModal} className="text-white/60 hover:text-white text-sm">✕</button>
             </div>
