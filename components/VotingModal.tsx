@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useRef } from "react";
+import { DangerButton, PrimaryButton, SuccessButton } from "@/components/ui/primitives";
 
 type VoteResponse = {
   status: "not_open" | "open" | "closed" | "tallied";
@@ -120,13 +121,13 @@ export default function VotingModal({
   // --- RESULTS VIEW ---
   if (isTallied) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-        <div className="w-full max-w-lg rounded-2xl border border-white/20 bg-[#111111] shadow-2xl overflow-hidden">
+      <div className="fixed inset-0 z-50 bg-[rgba(11,11,15,0.35)] backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="w-full max-w-lg rounded-[var(--radius)] border-[var(--border-width)] border-[var(--border)] bg-[var(--card-surface)] shadow-[var(--shadow-style)] overflow-hidden">
           {/* Close button */}
           <div className="flex justify-end px-5 pt-4">
             <button
               onClick={onClose}
-              className="text-white/40 hover:text-white transition-colors"
+              className="text-[rgba(11,11,15,0.6)] hover:text-[var(--ink)] transition-colors"
               aria-label="Close"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -137,42 +138,42 @@ export default function VotingModal({
 
           <div className="px-8 pb-8 pt-2 text-center space-y-6">
             {/* Result badge */}
-            <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full ${data.passed ? "bg-green-500/20" : "bg-red-500/20"}`}>
+            <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full ${data.passed ? "bg-[rgba(22,163,74,0.15)]" : "bg-[rgba(255,59,59,0.15)]"}`}>
               {data.passed ? (
-                <svg className="w-10 h-10 text-green-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <svg className="w-10 h-10 text-[var(--accent-green)]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
               ) : (
-                <svg className="w-10 h-10 text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <svg className="w-10 h-10 text-[var(--accent-red)]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               )}
             </div>
 
-            <h2 className={`text-3xl font-bold tracking-tight ${data.passed ? "text-green-400" : "text-red-400"}`}>
+            <h2 className={`text-3xl font-bold tracking-tight ${data.passed ? "text-[var(--accent-green)]" : "text-[var(--accent-red)]"}`}>
               {data.passed ? "PASSED" : "FAILED"}
             </h2>
 
-            <p className="text-sm text-white/50">{proposalTitle}</p>
+            <p className="text-sm text-[rgba(11,11,15,0.7)]">{proposalTitle}</p>
 
             {/* Totals */}
             <div className="flex justify-center gap-8 text-lg font-semibold">
-              <span className="text-green-400">YES {data.totals?.yes ?? 0}</span>
-              <span className="text-white/30">•</span>
-              <span className="text-red-400">NO {data.totals?.no ?? 0}</span>
+              <span className="text-[var(--accent-green)]">YES {data.totals?.yes ?? 0}</span>
+              <span className="text-[rgba(11,11,15,0.45)]">•</span>
+              <span className="text-[var(--accent-red)]">NO {data.totals?.no ?? 0}</span>
             </div>
 
             {/* Roll call */}
             {data.rollCall && data.rollCall.length > 0 && (
-              <div className="text-left rounded-xl border border-white/10 bg-white/[0.03] max-h-56 overflow-auto">
-                <div className="px-4 py-2 border-b border-white/10">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-white/50">Roll Call</p>
+              <div className="text-left rounded-[var(--radius)] border-[var(--border-width)] border-[var(--border)] bg-[var(--paper-bg)] max-h-56 overflow-auto shadow-[var(--shadow-style)]">
+                <div className="px-4 py-2 border-b border-[rgba(17,24,39,0.2)]">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[rgba(11,11,15,0.65)]">Roll Call</p>
                 </div>
-                <div className="divide-y divide-white/5">
+                <div className="divide-y divide-[rgba(17,24,39,0.15)]">
                   {data.rollCall.map((v) => (
                     <div key={v.team_id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                      <span className="text-white/80">{v.team_name}</span>
-                      <span className={`font-semibold ${v.vote.toLowerCase() === "yes" ? "text-green-400" : "text-red-400"}`}>
+                      <span className="text-[var(--ink)]">{v.team_name}</span>
+                      <span className={`font-semibold ${v.vote.toLowerCase() === "yes" ? "text-[var(--accent-green)]" : "text-[var(--accent-red)]"}`}>
                         {v.vote.toUpperCase()}
                       </span>
                     </div>
@@ -189,13 +190,13 @@ export default function VotingModal({
   // --- SUBMITTED VIEW ---
   if (isVotingActive && hasVoted) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-        <div className="w-full max-w-lg rounded-2xl border border-white/20 bg-[#111111] shadow-2xl overflow-hidden">
+      <div className="fixed inset-0 z-50 bg-[rgba(11,11,15,0.35)] backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="w-full max-w-lg rounded-[var(--radius)] border-[var(--border-width)] border-[var(--border)] bg-[var(--card-surface)] shadow-[var(--shadow-style)] overflow-hidden">
           {/* Close button */}
           <div className="flex justify-end px-5 pt-4">
             <button
               onClick={onClose}
-              className="text-white/40 hover:text-white transition-colors"
+              className="text-[rgba(11,11,15,0.6)] hover:text-[var(--ink)] transition-colors"
               aria-label="Close"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -206,21 +207,21 @@ export default function VotingModal({
 
           <div className="px-8 pb-8 pt-2 text-center space-y-5">
             {/* Green check icon */}
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/20">
-              <svg className="w-10 h-10 text-green-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[rgba(22,163,74,0.15)]">
+              <svg className="w-10 h-10 text-[var(--accent-green)]" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
             </div>
 
-            <h2 className="text-xl font-semibold text-white">Vote Successfully Submitted</h2>
-            <p className="text-sm text-white/50">
+            <h2 className="text-xl font-semibold text-[var(--ink)]">Vote Successfully Submitted</h2>
+            <p className="text-sm text-[rgba(11,11,15,0.7)]">
               Awaiting other votes… You can close this window, but voting will remain open until tallied.
             </p>
 
             {/* Disabled vote-submitted button */}
             <button
               disabled
-              className="w-full rounded-lg bg-white/10 px-4 py-3 text-sm font-semibold text-white/40 cursor-not-allowed"
+              className="w-full rounded-[var(--radius)] border-[var(--border-width)] border-[var(--border)] bg-[var(--paper-bg)] px-4 py-3 text-sm font-semibold text-[rgba(11,11,15,0.6)] cursor-not-allowed shadow-[var(--shadow-style)]"
             >
               Vote submitted: {String(data.myVote).toUpperCase()}
             </button>
@@ -228,18 +229,18 @@ export default function VotingModal({
             {/* Commissioner tally control */}
             {isCommissioner && (
               <>
-                <button
+                <PrimaryButton
                   onClick={handleTally}
                   disabled={tallying}
-                  className="w-full rounded-lg bg-[#0ea5e9] hover:bg-[#0ea5e9]/80 disabled:opacity-50 px-4 py-3 text-sm font-semibold text-white transition-colors"
+                  className="w-full px-4 py-3 text-sm font-semibold"
                 >
                   {tallying ? "Tallying…" : "Tally Votes"}
-                </button>
-                {tallyError && <p className="text-xs text-red-400">{tallyError}</p>}
+                </PrimaryButton>
+                {tallyError && <p className="text-xs text-[var(--accent-red)]">{tallyError}</p>}
               </>
             )}
 
-            <p className="text-xs text-white/30" aria-label="Number of votes submitted">
+            <p className="text-xs text-[rgba(11,11,15,0.55)]" aria-label="Number of votes submitted">
               Votes submitted: {data.submittedCount ?? 0}
             </p>
           </div>
@@ -250,13 +251,13 @@ export default function VotingModal({
 
   // --- DEFAULT VOTING VIEW ---
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-white/20 bg-[#111111] shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-[rgba(11,11,15,0.35)] backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-lg rounded-[var(--radius)] border-[var(--border-width)] border-[var(--border)] bg-[var(--card-surface)] shadow-[var(--shadow-style)] overflow-hidden">
         {/* Close button */}
         <div className="flex justify-end px-5 pt-4">
           <button
             onClick={onClose}
-            className="text-white/40 hover:text-white transition-colors"
+            className="text-[rgba(11,11,15,0.6)] hover:text-[var(--ink)] transition-colors"
             aria-label="Close"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -266,45 +267,45 @@ export default function VotingModal({
         </div>
 
         <div className="px-8 pb-8 pt-2 text-center space-y-5">
-          <h2 className="text-xl font-semibold text-white">Cast your vote</h2>
-          <p className="text-sm text-white/50">Approve or reject the proposal.</p>
-          <p className="text-xs text-white/30">{proposalTitle}</p>
+          <h2 className="text-xl font-semibold text-[var(--ink)]">Cast your vote</h2>
+          <p className="text-sm text-[rgba(11,11,15,0.7)]">Approve or reject the proposal.</p>
+          <p className="text-xs text-[rgba(11,11,15,0.55)]">{proposalTitle}</p>
 
-          {voteError && <p className="text-xs text-red-400">{voteError}</p>}
+          {voteError && <p className="text-xs text-[var(--accent-red)]">{voteError}</p>}
 
           {/* Vote buttons */}
           <div className="flex gap-3">
-            <button
+            <SuccessButton
               onClick={() => cast("YES")}
               disabled={submitting || data.status !== "open"}
-              className="flex-1 rounded-lg bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-3 text-sm font-semibold text-white transition-colors"
+              className="flex-1 px-4 py-3 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {submitting ? "Submitting…" : "Approve"}
-            </button>
-            <button
+            </SuccessButton>
+            <DangerButton
               onClick={() => cast("NO")}
               disabled={submitting || data.status !== "open"}
-              className="flex-1 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-3 text-sm font-semibold text-white transition-colors"
+              className="flex-1 px-4 py-3 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {submitting ? "Submitting…" : "Reject"}
-            </button>
+            </DangerButton>
           </div>
 
           {/* Commissioner tally control */}
           {isCommissioner && isVotingActive && (
             <>
-              <button
+              <PrimaryButton
                 onClick={handleTally}
                 disabled={tallying}
-                className="w-full rounded-lg bg-[#0ea5e9] hover:bg-[#0ea5e9]/80 disabled:opacity-50 px-4 py-3 text-sm font-semibold text-white transition-colors"
+                className="w-full px-4 py-3 text-sm font-semibold"
               >
                 {tallying ? "Tallying…" : "Tally Votes"}
-              </button>
-              {tallyError && <p className="text-xs text-red-400">{tallyError}</p>}
+              </PrimaryButton>
+              {tallyError && <p className="text-xs text-[var(--accent-red)]">{tallyError}</p>}
             </>
           )}
 
-          <p className="text-xs text-white/30" aria-label="Number of votes submitted">
+          <p className="text-xs text-[rgba(11,11,15,0.55)]" aria-label="Number of votes submitted">
             Votes submitted: {data.submittedCount ?? 0}
           </p>
         </div>

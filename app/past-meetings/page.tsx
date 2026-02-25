@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
+import { Chip, PopCard } from "@/components/ui/primitives";
 
 type PastMeeting = {
   id: string;
@@ -35,22 +36,22 @@ export default function PastMeetingsPage() {
     [meetings]
   );
 
-  if (loading) return <div className="min-h-screen bg-black" />;
-  if (!session) return <div className="min-h-screen bg-black text-white p-6">Not logged in.</div>;
+  if (loading) return <div className="min-h-screen bg-[var(--paper-bg)]" />;
+  if (!session) return <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)] p-6">Not logged in.</div>;
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)]">
       <Nav teamName={session.team_name} isCommissioner={isCommissioner} onLogout={logout} />
       <main className="max-w-4xl mx-auto p-6 space-y-4">
-        <h1 className="text-2xl font-bold">Past Meetings</h1>
-        <div className="flex gap-2">
-          <select value={year} onChange={(e) => setYear(e.target.value)} className="bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm">
+        <h1 className="text-2xl font-bold tracking-tight">Past Meetings</h1>
+        <div className="flex flex-wrap gap-2">
+          <select value={year} onChange={(e) => setYear(e.target.value)} className="bg-[var(--card-surface)] border-[var(--border-width)] border-[var(--border)] rounded-[var(--radius)] px-3 py-2 text-sm shadow-[var(--shadow-style)]">
             <option value="">All years</option>
             {years.map((y) => (
               <option key={y} value={String(y)}>{y}</option>
             ))}
           </select>
-          <select value={outcome} onChange={(e) => setOutcome(e.target.value)} className="bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm">
+          <select value={outcome} onChange={(e) => setOutcome(e.target.value)} className="bg-[var(--card-surface)] border-[var(--border-width)] border-[var(--border)] rounded-[var(--radius)] px-3 py-2 text-sm shadow-[var(--shadow-style)]">
             <option value="">All outcomes</option>
             <option value="passed">Has passed</option>
             <option value="failed">Has failed</option>
@@ -59,20 +60,19 @@ export default function PastMeetingsPage() {
 
         <div className="space-y-2">
           {meetings.map((meeting) => (
-            <div key={meeting.id} className="border border-gray-800 rounded p-4 bg-gray-900">
-              <div className="flex justify-between items-center">
+            <PopCard key={meeting.id} className="p-4">
+              <div className="flex justify-between items-center gap-3">
                 <h2 className="font-semibold">{meeting.year} — {meeting.title}</h2>
-                <span className={`text-xs px-2 py-0.5 rounded ${meeting.locked ? "bg-red-900 text-red-200" : "bg-green-900 text-green-200"}`}>
+                <Chip className="text-xs px-3 py-1">
                   {meeting.locked ? "Locked" : "Unlocked"}
-                </span>
+                </Chip>
               </div>
-              <p className="text-sm text-gray-400 mt-2">Passed: {meeting.passedCount} • Failed: {meeting.failedCount}</p>
-            </div>
+              <p className="text-sm text-[rgba(11,11,15,0.7)] mt-2">Passed: {meeting.passedCount} • Failed: {meeting.failedCount}</p>
+            </PopCard>
           ))}
-          {!meetings.length && <p className="text-sm text-gray-500">No meetings found.</p>}
+          {!meetings.length && <p className="text-sm text-[rgba(11,11,15,0.6)]">No meetings found.</p>}
         </div>
       </main>
     </div>
   );
 }
-

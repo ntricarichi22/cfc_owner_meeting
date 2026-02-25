@@ -6,6 +6,7 @@ import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
 import { getMeetings } from "@/lib/actions";
 import type { Meeting } from "@/lib/types";
+import { Chip, PopCard } from "@/components/ui/primitives";
 
 export default function HistoryPage() {
   const { session, loading, logout } = useSession();
@@ -19,45 +20,44 @@ export default function HistoryPage() {
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load meetings"));
   }, [session]);
 
-  if (loading) return <div className="min-h-screen bg-black" />;
-  if (!session) return <div className="min-h-screen bg-black text-white p-8">Not logged in.</div>;
+  if (loading) return <div className="min-h-screen bg-[var(--paper-bg)]" />;
+  if (!session) return <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)] p-8">Not logged in.</div>;
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)]">
       <Nav teamName={session.team_name} isCommissioner={session.role === "commissioner"} onLogout={logout} />
 
       <div className="max-w-4xl mx-auto p-6">
-        <h1 className="text-2xl font-bold mb-6">Meeting History</h1>
+        <h1 className="text-2xl font-bold mb-6 tracking-tight">Meeting History</h1>
 
-        {error && <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-2 rounded mb-4">{error}</div>}
+        {error && (
+          <PopCard className="mb-4 border-[var(--accent-red)] text-[var(--ink)]">
+            <p className="text-[var(--accent-red)] font-semibold">{error}</p>
+          </PopCard>
+        )}
 
         {meetings.length === 0 && !error && (
-          <p className="text-gray-500">No meetings found.</p>
+          <p className="text-[rgba(11,11,15,0.65)]">No meetings found.</p>
         )}
 
         <div className="space-y-3">
           {meetings.map((m) => (
-            <Link
-              key={m.id}
-              href={`/history/${m.club_year}`}
-              className="block bg-gray-900 border border-gray-800 rounded-lg p-4 hover:border-gray-600 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-lg">{m.club_year} Season</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  m.status === "finalized"
-                    ? "bg-green-900 text-green-300"
-                    : m.status === "live"
-                    ? "bg-yellow-900 text-yellow-300"
-                    : "bg-gray-800 text-gray-400"
-                }`}>
-                  {m.status}
-                </span>
-              </div>
-              {m.meeting_date && (
-                <p className="text-gray-400 text-sm mt-1">{new Date(m.meeting_date).toLocaleDateString()}</p>
-              )}
-            </Link>
+            <PopCard key={m.id} className="p-0 hover:-translate-y-[1px] transition-transform">
+              <Link
+                href={`/history/${m.club_year}`}
+                className="block px-5 py-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold text-lg tracking-tight">{m.club_year} Season</span>
+                  <Chip className="text-xs px-3 py-1">
+                    {m.status}
+                  </Chip>
+                </div>
+                {m.meeting_date && (
+                  <p className="text-[rgba(11,11,15,0.65)] text-sm mt-1">{new Date(m.meeting_date).toLocaleDateString()}</p>
+                )}
+              </Link>
+            </PopCard>
           ))}
         </div>
       </div>

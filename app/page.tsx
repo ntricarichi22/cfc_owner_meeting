@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/components/TeamSelector";
 import Nav from "@/components/Nav";
+import { PopCard, PrimaryButton } from "@/components/ui/primitives";
 
 interface Team {
   teamId: string;
@@ -78,8 +79,8 @@ export default function Home() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <main className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)] flex items-center justify-center">
+        <p className="text-[rgba(11,11,15,0.6)]">Loading...</p>
       </main>
     );
   }
@@ -87,19 +88,19 @@ export default function Home() {
   return (
     <>
       <Nav teamName={session?.team_name} isCommissioner={isCommissioner} onLogout={logout} />
-      <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-8">
-        <h1 className="text-5xl font-bold mb-8">CFC Owners Meeting</h1>
+      <main className="min-h-[calc(100vh-64px)] bg-[var(--paper-bg)] text-[var(--ink)] flex flex-col items-center justify-center p-8">
+        <h1 className="text-5xl font-bold mb-8 tracking-tight">CFC Owners Meeting</h1>
 
         {!session ? (
-          <div className="bg-gray-900 p-8 rounded-xl shadow-lg">
-            <p className="mb-4 text-gray-400">Select Your Team</p>
-            {error && <p className="text-red-400 mb-2 text-sm">{error}</p>}
+          <PopCard className="w-full max-w-md">
+            <p className="mb-3 text-sm text-[rgba(11,11,15,0.7)]">Select Your Team</p>
+            {error && <p className="text-[var(--accent-red)] mb-2 text-sm">{error}</p>}
             {teamsLoading ? (
-              <p className="text-gray-500">Loading teams…</p>
+              <p className="text-[rgba(11,11,15,0.65)]">Loading teams…</p>
             ) : (
               <>
                 <select
-                  className="bg-black border border-gray-700 p-3 rounded-lg text-white w-64"
+                  className="bg-[var(--card-surface)] border-[var(--border-width)] border-[var(--border)] p-3 rounded-[var(--radius)] text-[var(--ink)] w-full shadow-[var(--shadow-style)]"
                   value={selectedTeamId}
                   onChange={(e) => {
                     setSelectedTeamId(e.target.value);
@@ -116,29 +117,22 @@ export default function Home() {
                     </option>
                   ))}
                 </select>
-                <button
-                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg disabled:opacity-50"
-                  disabled={!selectedTeamId}
-                  onClick={handleEnterMeeting}
-                >
+                <PrimaryButton className="mt-4 w-full" disabled={!selectedTeamId} onClick={handleEnterMeeting}>
                   Enter meeting room
-                </button>
+                </PrimaryButton>
               </>
             )}
-          </div>
+          </PopCard>
         ) : (
-          <div className="text-center max-w-2xl w-full bg-gray-900 p-8 rounded-xl shadow-lg">
-            <h2 className="text-3xl mb-2">Welcome, {session.team_name}</h2>
+          <PopCard className="text-center max-w-2xl w-full">
+            <h2 className="text-3xl mb-2 tracking-tight">Welcome, {session.team_name}</h2>
             {isCommissioner && (
-              <p className="text-yellow-400 mb-6">You are the Commissioner</p>
+              <p className="text-[var(--accent-green)] font-semibold mb-6">You are the Commissioner</p>
             )}
-            <button
-              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg"
-              onClick={handleEnterMeeting}
-            >
+            <PrimaryButton className="mt-4" onClick={handleEnterMeeting}>
               Enter meeting room
-            </button>
-          </div>
+            </PrimaryButton>
+          </PopCard>
         )}
       </main>
     </>

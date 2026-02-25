@@ -14,6 +14,7 @@ import {
   getOwners,
 } from "@/lib/actions";
 import { VOTE_THRESHOLD } from "@/lib/types";
+import { Chip, PopCard } from "@/components/ui/primitives";
 import type {
   Meeting,
   AgendaItem,
@@ -102,43 +103,43 @@ export default function HistoryYearPage({ params }: { params: Promise<{ year: st
     if (session) loadData();
   }, [session, loadData]);
 
-  if (loading) return <div className="min-h-screen bg-black" />;
-  if (!session) return <div className="min-h-screen bg-black text-white p-8">Not logged in.</div>;
+  if (loading) return <div className="min-h-screen bg-[var(--paper-bg)]" />;
+  if (!session) return <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)] p-8">Not logged in.</div>;
 
   const yesVotes = (votes: VoteWithOwner[]) => votes.filter((v) => v.choice === "yes");
   const noVotes = (votes: VoteWithOwner[]) => votes.filter((v) => v.choice === "no");
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)]">
       <Nav teamName={session.team_name} isCommissioner={session.role === "commissioner"} onLogout={logout} />
 
-      <div className="max-w-4xl mx-auto p-6">
-        <Link href="/history" className="text-blue-400 hover:text-blue-300 text-sm mb-4 inline-block">
+      <div className="max-w-4xl mx-auto p-6 space-y-4">
+        <Link href="/history" className="text-[var(--accent-blue)] text-sm mb-2 inline-block underline-offset-4 hover:underline">
           ← Back to History
         </Link>
 
-        <h1 className="text-2xl font-bold mb-1">{year} Season Meeting</h1>
+        <h1 className="text-2xl font-bold mb-1 tracking-tight">{year} Season Meeting</h1>
         {meeting?.meeting_date && (
-          <p className="text-gray-400 text-sm mb-6">{new Date(meeting.meeting_date).toLocaleDateString()}</p>
+          <p className="text-[rgba(11,11,15,0.65)] text-sm mb-4">{new Date(meeting.meeting_date).toLocaleDateString()}</p>
         )}
 
-        {error && <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-2 rounded mb-4">{error}</div>}
+        {error && (
+          <PopCard className="border-[var(--accent-red)] text-[var(--ink)]">
+            <p className="text-[var(--accent-red)] font-semibold">{error}</p>
+          </PopCard>
+        )}
 
-        {dataLoading && !error && <p className="text-gray-500">Loading…</p>}
+        {dataLoading && !error && <p className="text-[rgba(11,11,15,0.65)]">Loading…</p>}
 
         {/* Agenda Items */}
         {items.length > 0 && (
-          <div className="space-y-6 mb-8">
-            <h2 className="text-xl font-semibold">Agenda Items</h2>
+          <div className="space-y-4 mb-6">
+            <h2 className="text-xl font-semibold tracking-tight">Agenda Items</h2>
             {items.map(({ item, proposal, versions, votes }) => (
-              <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-                <div className="flex items-center gap-3 mb-3">
-                  <h3 className="font-semibold text-lg">{item.title}</h3>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    item.type === "proposal" ? "bg-blue-900 text-blue-300" : "bg-gray-800 text-gray-400"
-                  }`}>
-                    {item.type}
-                  </span>
+              <PopCard key={item.id} className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-semibold text-lg tracking-tight">{item.title}</h3>
+                  <Chip className="text-xs px-3 py-1">{item.type}</Chip>
                 </div>
 
                 {proposal && (
@@ -147,44 +148,40 @@ export default function HistoryYearPage({ params }: { params: Promise<{ year: st
                     {(() => {
                       const finalVer = versions.find((v) => v.status === "final") || versions.at(-1);
                       return finalVer ? (
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-400 mb-1">Final Proposal Text</h4>
-                          <div className="bg-gray-800 rounded p-3 text-sm text-gray-300 whitespace-pre-wrap">
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-[rgba(11,11,15,0.7)]">Final Proposal Text</h4>
+                          <PopCard className="bg-[var(--paper-bg)] shadow-[var(--shadow-style)] text-sm whitespace-pre-wrap">
                             {finalVer.full_text}
-                          </div>
+                          </PopCard>
                         </div>
                       ) : null;
                     })()}
 
                     {/* Vote Results */}
                     {votes.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-400 mb-2">Vote Results</h4>
-                        <div className="flex gap-4 mb-2">
-                          <span className="text-green-400 font-semibold">Yes: {yesVotes(votes).length}</span>
-                          <span className="text-red-400 font-semibold">No: {noVotes(votes).length}</span>
-                          <span className={`font-bold px-2 py-0.5 rounded text-sm ${
-                            yesVotes(votes).length >= VOTE_THRESHOLD
-                              ? "bg-green-900 text-green-300"
-                              : "bg-red-900 text-red-300"
-                          }`}>
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-[rgba(11,11,15,0.7)]">Vote Results</h4>
+                        <div className="flex gap-4 mb-1">
+                          <span className="text-[var(--accent-green)] font-semibold">Yes: {yesVotes(votes).length}</span>
+                          <span className="text-[var(--accent-red)] font-semibold">No: {noVotes(votes).length}</span>
+                          <Chip className="text-sm px-3 py-1">
                             {yesVotes(votes).length >= VOTE_THRESHOLD ? "PASSED" : "FAILED"}
-                          </span>
+                          </Chip>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                           <div>
-                            <p className="text-green-400 text-xs font-medium mb-1">Voted Yes</p>
+                            <p className="text-[var(--accent-green)] text-xs font-medium mb-1">Voted Yes</p>
                             {yesVotes(votes).map((v) => (
-                              <p key={v.id} className="text-gray-300">{v.owner?.team_name ?? "Unknown"}</p>
+                              <p key={v.id} className="text-[rgba(11,11,15,0.75)]">{v.owner?.team_name ?? "Unknown"}</p>
                             ))}
-                            {yesVotes(votes).length === 0 && <p className="text-gray-600">None</p>}
+                            {yesVotes(votes).length === 0 && <p className="text-[rgba(11,11,15,0.6)]">None</p>}
                           </div>
                           <div>
-                            <p className="text-red-400 text-xs font-medium mb-1">Voted No</p>
+                            <p className="text-[var(--accent-red)] text-xs font-medium mb-1">Voted No</p>
                             {noVotes(votes).map((v) => (
-                              <p key={v.id} className="text-gray-300">{v.owner?.team_name ?? "Unknown"}</p>
+                              <p key={v.id} className="text-[rgba(11,11,15,0.75)]">{v.owner?.team_name ?? "Unknown"}</p>
                             ))}
-                            {noVotes(votes).length === 0 && <p className="text-gray-600">None</p>}
+                            {noVotes(votes).length === 0 && <p className="text-[rgba(11,11,15,0.6)]">None</p>}
                           </div>
                         </div>
                       </div>
@@ -193,43 +190,35 @@ export default function HistoryYearPage({ params }: { params: Promise<{ year: st
                     {/* Version History */}
                     {versions.length > 1 && (
                       <details className="text-sm">
-                        <summary className="text-gray-400 cursor-pointer hover:text-gray-300">
+                        <summary className="cursor-pointer text-[rgba(11,11,15,0.7)] hover:text-[var(--ink)]">
                           Version History ({versions.length} versions)
                         </summary>
                         <div className="mt-2 space-y-2">
                           {versions.map((v) => (
-                            <div key={v.id} className="bg-gray-800 rounded p-3">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-gray-400">v{v.version_number}</span>
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                  v.status === "final"
-                                    ? "bg-green-900 text-green-300"
-                                    : v.status === "active"
-                                    ? "bg-blue-900 text-blue-300"
-                                    : "bg-gray-700 text-gray-400"
-                                }`}>
-                                  {v.status}
-                                </span>
+                            <PopCard key={v.id} className="text-sm space-y-1">
+                              <div className="flex items-center gap-2 mb-1 text-xs text-[rgba(11,11,15,0.65)]">
+                                <span className="text-[rgba(11,11,15,0.7)]">v{v.version_number}</span>
+                                <Chip className="text-[11px] px-2 py-0.5">{v.status}</Chip>
                               </div>
-                              <p className="text-gray-300 whitespace-pre-wrap">{v.full_text}</p>
-                            </div>
+                              <p className="text-[var(--ink)] whitespace-pre-wrap">{v.full_text}</p>
+                            </PopCard>
                           ))}
                         </div>
                       </details>
                     )}
                   </div>
                 )}
-              </div>
+              </PopCard>
             ))}
           </div>
         )}
 
         {/* Meeting Minutes */}
         {minutes && (
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-            <h2 className="text-xl font-semibold mb-3">Meeting Minutes</h2>
-            <div className="text-gray-300 whitespace-pre-wrap text-sm">{minutes.minutes_markdown}</div>
-          </div>
+          <PopCard className="space-y-3">
+            <h2 className="text-xl font-semibold">Meeting Minutes</h2>
+            <div className="text-[rgba(11,11,15,0.8)] whitespace-pre-wrap text-sm">{minutes.minutes_markdown}</div>
+          </PopCard>
         )}
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { PopCard } from "@/components/ui/primitives";
 import { COMMISSIONER_TEAM_NAME } from "@/lib/constants";
 
 interface SessionData {
@@ -63,10 +64,10 @@ export function useSession() {
 
 export function TeamSelector({ owners, onSelect }: { owners: Owner[]; onSelect: (name: string) => void }) {
   return (
-    <div className="bg-gray-900 p-8 rounded-xl shadow-lg">
-      <p className="mb-4 text-gray-400">Select Your Team</p>
+    <PopCard className="w-full max-w-md">
+      <p className="mb-4 text-sm text-[rgba(11,11,15,0.7)]">Select Your Team</p>
       <select
-        className="bg-black border border-gray-700 p-3 rounded-lg text-white w-64"
+        className="bg-[var(--card-surface)] border-[var(--border-width)] border-[var(--border)] p-3 rounded-[var(--radius)] text-[var(--ink)] w-full shadow-[var(--shadow-style)]"
         defaultValue=""
         onChange={(e) => {
           if (e.target.value) onSelect(e.target.value);
@@ -79,6 +80,6 @@ export function TeamSelector({ owners, onSelect }: { owners: Owner[]; onSelect: 
           </option>
         ))}
       </select>
-    </div>
+    </PopCard>
   );
 }

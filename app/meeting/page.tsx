@@ -8,6 +8,7 @@ import { useSession } from "@/components/TeamSelector";
 import VotingModal from "@/components/VotingModal";
 import { COMMISSIONER_TEAM_NAME } from "@/lib/constants";
 import { isHtmlContent, isEmptyHtml } from "@/lib/html-utils";
+import { Chip, PopCard, PrimaryButton, DangerButton, SuccessButton, NeutralButton } from "@/components/ui/primitives";
 import type {
   Meeting,
   Proposal,
@@ -97,28 +98,31 @@ function ConstitutionChips({ sections }: { sections: ConstitutionSectionInfo[] }
     return (
       <>
         {sections.map((sec) => (
-          <a
-            key={sec.id}
-            href={constitutionChipHref(sec)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
-          >
-            {constitutionChipLabel(sec)} ↗
-          </a>
+          <Chip key={sec.id} className="text-sm px-3 py-1 cursor-pointer">
+            <a
+              href={constitutionChipHref(sec)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1"
+            >
+              {constitutionChipLabel(sec)} ↗
+            </a>
+          </Chip>
         ))}
       </>
     );
   }
   return (
-    <a
-      href="/constitution"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9] hover:bg-[#0ea5e9]/10 transition-colors cursor-pointer"
-    >
-      Constitution ↗
-    </a>
+    <Chip className="text-sm px-3 py-1 cursor-pointer">
+      <a
+        href="/constitution"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1"
+      >
+        Constitution ↗
+      </a>
+    </Chip>
   );
 }
 
@@ -451,8 +455,8 @@ export default function MeetingOwnerPage() {
 
   if (sessionLoading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <p className="text-white/50">Loading...</p>
+      <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)] flex items-center justify-center">
+        <p className="text-[rgba(11,11,15,0.6)]">Loading...</p>
       </div>
     );
   }
@@ -461,10 +465,10 @@ export default function MeetingOwnerPage() {
 
   if (meetingNotFound) {
     return (
-      <div className="min-h-screen bg-black text-white">
+      <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)]">
         <Nav teamName={session.team_name} isCommissioner={isCommissioner} onLogout={logout} />
         <div className="flex items-center justify-center h-96">
-          <p className="text-white/50">No live meeting found.</p>
+          <p className="text-[rgba(11,11,15,0.6)]">No live meeting found.</p>
         </div>
       </div>
     );
@@ -472,31 +476,31 @@ export default function MeetingOwnerPage() {
 
   if (!meeting) {
     return (
-      <div className="min-h-screen bg-black text-white">
+      <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)]">
         <Nav teamName={session.team_name} isCommissioner={isCommissioner} onLogout={logout} />
         <div className="flex items-center justify-center h-96">
-          <p className="text-white/50">Loading meeting...</p>
+          <p className="text-[rgba(11,11,15,0.6)]">Loading meeting...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#070707] text-white">
+    <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)]">
       <Nav teamName={session.team_name} isCommissioner={isCommissioner} onLogout={logout} />
 
       {error && (
-        <div className="mx-8 mt-4 bg-red-900/70 border border-red-700 text-red-200 px-4 py-2 rounded-xl flex justify-between items-center">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-300 hover:text-white ml-4">✕</button>
-        </div>
+        <PopCard className="mx-8 mt-4 flex justify-between items-center border-[var(--accent-red)]">
+          <span className="font-semibold text-[var(--accent-red)]">{error}</span>
+          <button onClick={() => setError(null)} className="text-[var(--accent-red)] hover:text-[var(--ink)] ml-4">✕</button>
+        </PopCard>
       )}
 
-      <main className="group relative h-[calc(100vh-74px)] overflow-hidden">
+      <main className="group relative h-[calc(100vh-64px)] overflow-hidden px-4 md:px-8 pb-8">
         {currentSlide > 0 && (
           <button
             onClick={() => changeSlide(currentSlide - 1)}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full border border-white/20 bg-black/40 text-white/80 hover:text-white hover:border-white/50 opacity-0 group-hover:opacity-100 transition"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full border-[var(--border-width)] border-[var(--border)] bg-[var(--card-surface)] text-[var(--ink)] shadow-[var(--shadow-style)] hover:-translate-x-[2px] hover:shadow-[5px_5px_0_var(--shadow)] transition-transform"
             aria-label="Previous slide"
           >
             ←
@@ -505,7 +509,7 @@ export default function MeetingOwnerPage() {
         {currentSlide < slideCount - 1 && (
           <button
             onClick={() => changeSlide(currentSlide + 1)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full border border-white/20 bg-black/40 text-white/80 hover:text-white hover:border-white/50 opacity-0 group-hover:opacity-100 transition"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full border-[var(--border-width)] border-[var(--border)] bg-[var(--card-surface)] text-[var(--ink)] shadow-[var(--shadow-style)] hover:translate-x-[2px] hover:shadow-[5px_5px_0_var(--shadow)] transition-transform"
             aria-label="Next slide"
           >
             →
@@ -513,185 +517,154 @@ export default function MeetingOwnerPage() {
         )}
 
         {currentSlide === 0 ? (
-          <section className="h-full grid grid-cols-1 md:grid-cols-2">
-            <div className="bg-[#050505] flex flex-col justify-between p-10 md:p-16">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-white/50">Current Meeting</p>
-                <h1 className="text-4xl md:text-6xl font-semibold mt-5 tracking-tight leading-tight">CFC Owners Meeting 2026</h1>
+          <section className="h-full grid grid-cols-1 md:grid-cols-2 gap-6 py-6">
+            <PopCard className="h-full flex flex-col justify-between">
+              <div className="space-y-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-[rgba(11,11,15,0.6)]">Current Meeting</p>
+                <h1 className="text-4xl md:text-5xl font-bold mt-2 tracking-tight leading-tight">{meeting.title || "CFC Owners Meeting"}</h1>
+                <p className="text-[rgba(11,11,15,0.75)]">Annual owners meeting agenda and proposal voting deck.</p>
               </div>
-              <div className="space-y-4">
-                <div className="h-16 w-16 rounded-2xl border border-white/20 bg-white/5 flex items-center justify-center text-xl tracking-[0.22em] font-semibold">
+              <div className="flex items-center gap-3 pt-6 flex-wrap">
+                <div className="h-14 w-14 rounded-[var(--radius)] border-[var(--border-width)] border-[var(--border)] bg-[var(--paper-bg)] shadow-[var(--shadow-style)] flex items-center justify-center text-lg font-semibold tracking-[0.14em]">
                   CFC
                 </div>
-                <p className="text-sm text-white/50">Annual owners meeting agenda and proposal voting deck.</p>
-                <button
-                  onClick={handleExitMeeting}
-                  className="text-xs text-white/50 hover:text-white transition-colors"
-                >
-                  Exit meeting
-                </button>
+                <NeutralButton onClick={handleExitMeeting} className="text-sm px-4 py-2">Exit meeting</NeutralButton>
               </div>
-            </div>
-            <div className="relative overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,#6d28d9_0%,transparent_45%),radial-gradient(circle_at_80%_30%,#2563eb_0%,transparent_42%),radial-gradient(circle_at_50%_80%,#0ea5e9_0%,transparent_38%),linear-gradient(135deg,#101010,#050505)]" />
-              <div className="absolute inset-0 opacity-20 mix-blend-soft-light" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2790%27 height=%2790%27 viewBox=%270 0 90 90%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.8%27 numOctaves=%272%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%2790%27 height=%2790%27 filter=%27url(%23n)%27 opacity=%270.6%27/%3E%3C/svg%3E')" }} />
-              <div className="absolute bottom-8 right-8 text-right">
-                <p className="text-xs uppercase tracking-[0.2em] text-white/60">Image Slot</p>
-                <p className="text-sm text-white/40">Drop in /public/title-image.jpg later</p>
+            </PopCard>
+            <PopCard className="h-full flex flex-col justify-between">
+              <div className="space-y-3">
+                <h2 className="text-2xl font-semibold tracking-tight">Slides</h2>
+                <p className="text-[rgba(11,11,15,0.75)]">Use arrow keys to move between agenda items and proposals.</p>
               </div>
-            </div>
+              <div className="flex items-center gap-3 pt-6 flex-wrap">
+                <Chip className="text-sm px-3 py-1">Total Slides: {slideCount}</Chip>
+                <Chip className="text-sm px-3 py-1">Team: {session.team_name}</Chip>
+                {isCommissioner && <Chip className="text-sm px-3 py-1">Commissioner</Chip>}
+              </div>
+            </PopCard>
           </section>
         ) : (
-          <section className="h-full flex flex-col px-8 py-6 md:px-14 md:py-8 overflow-hidden">
+          <section className="h-full flex flex-col gap-4 py-6">
               {proposal && (proposal.proposal_type || "proposal") !== "admin" ? (
-                <div className="flex flex-col h-full min-h-0">
-                  {/* Proposal header card */}
-                  <header className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-5 flex-shrink-0 flex flex-col justify-between">
-                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">
-                      Proposal #{currentSlide}: {proposal?.title || "Untitled Proposal"}
-                    </h1>
-                    <div className="flex flex-wrap items-center justify-between gap-4 mt-4">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9]">
-                          Proposed by: {proposal?.proposed_by || "Commissioner"}
-                        </span>
-                        <span className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9]">
-                          Effective Date: {proposal?.effective_date || "TBD"}
-                        </span>
+                <div className="flex flex-col h-full min-h-0 gap-4">
+                  <PopCard className="flex-shrink-0">
+                    <div className="flex flex-col gap-3">
+                      <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">
+                        Proposal #{currentSlide}: {proposal?.title || "Untitled Proposal"}
+                      </h1>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Chip className="text-sm px-3 py-1">Proposed by: {proposal?.proposed_by || "Commissioner"}</Chip>
+                        <Chip className="text-sm px-3 py-1">Effective Date: {proposal?.effective_date || "TBD"}</Chip>
                         <ConstitutionChips sections={linkedSections} />
                       </div>
-                      {voteSessionStatus === "tallied" ? (
-                        <button
-                          onClick={() => setShowVotingModal(true)}
-                          className={`rounded-lg px-6 py-3 text-base font-semibold text-white transition-colors ${
-                            voteSessionPassed
-                              ? "bg-green-600 hover:bg-green-500"
-                              : "bg-red-600 hover:bg-red-500"
-                          }`}
-                        >
-                          {voteSessionPassed ? "APPROVED" : "REJECTED"}
-                        </button>
-                      ) : isCommissioner ? (
-                        <div className="flex flex-col items-end gap-1">
-                          <button
-                            onClick={handleStartVoting}
-                            className="rounded-lg bg-[#0ea5e9] px-6 py-3 text-base font-semibold text-white hover:bg-[#0ea5e9]/90 transition-colors"
-                          >
-                            Start Voting
-                          </button>
-                          {startVotingError && (
-                            <p className="text-xs text-red-400">{startVotingError}</p>
-                          )}
-                        </div>
-                      ) : null}
                     </div>
-                  </header>
-
-                  {/* Three cards: Details · Pros · Cons */}
-                  <div className="flex gap-4 mt-4 flex-1 min-h-0">
-                    {/* Details card */}
-                    <div className="flex-1 flex flex-col min-w-0">
-                      <div
-                        className="slide-content-card flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-y-auto overflow-x-hidden text-sm text-white/90"
-                        style={{ boxShadow: "0 0 24px 4px rgba(218,165,32,0.18), 0 0 48px 8px rgba(218,165,32,0.08)" }}
-                        aria-label="Proposal details"
-                      >
-                        {summaryText ? (
-                          <RichTextViewer
-                            html={isHtmlContent(summaryText) ? summaryText : null}
-                            text={!isHtmlContent(summaryText) ? summaryText : null}
-                          />
+                    {voteSessionStatus === "tallied" ? (
+                      <div className="flex items-center gap-2">
+                        {voteSessionPassed ? (
+                          <SuccessButton onClick={() => setShowVotingModal(true)} className="px-5 py-2 text-sm">APPROVED</SuccessButton>
                         ) : (
-                          <p className="text-white/30 italic">No details added yet.</p>
+                          <DangerButton onClick={() => setShowVotingModal(true)} className="px-5 py-2 text-sm">REJECTED</DangerButton>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-3 justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white">
+                    ) : isCommissioner ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <PrimaryButton onClick={handleStartVoting} className="px-5 py-2 text-sm">
+                          Start Voting
+                        </PrimaryButton>
+                        {startVotingError && (
+                          <p className="text-xs text-[var(--accent-red)]">{startVotingError}</p>
+                        )}
+                      </div>
+                    ) : null}
+                  </PopCard>
+
+                  <div className="flex gap-4 flex-1 min-h-0 flex-col md:flex-row">
+                    <PopCard className="flex-1 flex flex-col min-w-0" aria-label="Proposal details">
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                           <polyline points="14 2 14 8 20 8" />
                           <line x1="16" y1="13" x2="8" y2="13" />
                           <line x1="16" y1="17" x2="8" y2="17" />
                           <polyline points="10 9 9 9 8 9" />
                         </svg>
-                        <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">Details</span>
+                        <span className="text-xl font-semibold tracking-tight">Details</span>
                       </div>
-                    </div>
+                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed">
+                        {summaryText ? (
+                          <RichTextViewer
+                            html={isHtmlContent(summaryText) ? summaryText : null}
+                            text={!isHtmlContent(summaryText) ? summaryText : null}
+                          />
+                        ) : (
+                          <p className="text-[rgba(11,11,15,0.6)] italic">No details added yet.</p>
+                        )}
+                      </div>
+                    </PopCard>
 
-                    {/* Pros card */}
-                    <div className="flex-1 flex flex-col min-w-0">
-                      <div
-                        className="slide-content-card flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-y-auto overflow-x-hidden text-sm text-white/90"
-                        style={{ boxShadow: "0 0 24px 4px rgba(74,222,128,0.18), 0 0 48px 8px rgba(74,222,128,0.08)" }}
-                        aria-label="Proposal pros"
-                      >
+                    <PopCard className="flex-1 flex flex-col min-w-0" aria-label="Proposal pros">
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
+                          <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                        </svg>
+                        <span className="text-xl font-semibold tracking-tight">Pros</span>
+                      </div>
+                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed">
                         {rationaleData.prosHtml ? (
                           <RichTextViewer html={rationaleData.prosHtml} />
                         ) : rationaleData.pros.length > 0 ? (
                           <RichTextViewer items={rationaleData.pros} />
                         ) : (
-                          <p className="text-white/30 italic">Add pros...</p>
+                          <p className="text-[rgba(11,11,15,0.6)] italic">Add pros...</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-3 justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white">
-                          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
-                          <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-                        </svg>
-                        <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">Pros</span>
-                      </div>
-                    </div>
+                    </PopCard>
 
-                    {/* Cons card */}
-                    <div className="flex-1 flex flex-col min-w-0">
-                      <div
-                        className="slide-content-card flex-1 rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-y-auto overflow-x-hidden text-sm text-white/90"
-                        style={{ boxShadow: "0 0 24px 4px rgba(248,113,113,0.18), 0 0 48px 8px rgba(248,113,113,0.08)" }}
-                        aria-label="Proposal cons"
-                      >
+                    <PopCard className="flex-1 flex flex-col min-w-0" aria-label="Proposal cons">
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
+                          <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+                        </svg>
+                        <span className="text-xl font-semibold tracking-tight">Cons</span>
+                      </div>
+                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed">
                         {rationaleData.consHtml ? (
                           <RichTextViewer html={rationaleData.consHtml} />
                         ) : rationaleData.cons.length > 0 ? (
                           <RichTextViewer items={rationaleData.cons} />
                         ) : (
-                          <p className="text-white/30 italic">Add cons...</p>
+                          <p className="text-[rgba(11,11,15,0.6)] italic">Add cons...</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-3 justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white">
-                          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
-                          <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
-                        </svg>
-                        <span className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">Cons</span>
-                      </div>
-                    </div>
+                    </PopCard>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col h-full min-h-0">
-                  <header className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-5 flex-shrink-0 flex flex-col justify-between">
+                <div className="flex flex-col h-full min-h-0 gap-4">
+                  <PopCard className="flex-shrink-0">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-xs uppercase tracking-[0.2em] text-white/40">Admin Slide</span>
+                      <span className="text-xs uppercase tracking-[0.2em] text-[rgba(11,11,15,0.6)]">Admin Slide</span>
                     </div>
-                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white tracking-tight">
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">
                       {proposal?.title || "General agenda item"}
                     </h1>
-                    <div className="flex flex-wrap items-center gap-3 mt-4">
-                      <span className="inline-flex items-center rounded-full border border-[#0ea5e9] px-3 py-1 text-sm font-medium text-[#0ea5e9]">
-                        Proposed by: {proposal?.proposed_by || "Commissioner"}
-                      </span>
+                    <div className="flex flex-wrap items-center gap-2 mt-4">
+                      <Chip className="text-sm px-3 py-1">Proposed by: {proposal?.proposed_by || "Commissioner"}</Chip>
                       <ConstitutionChips sections={linkedSections} />
                     </div>
-                  </header>
-                  <div className="slide-content-card mt-4 flex-1 min-h-0 rounded-2xl border border-white/10 bg-white/[0.03] p-6 overflow-auto">
+                  </PopCard>
+                  <PopCard className="flex-1 min-h-0 overflow-auto">
                     {summaryText ? (
                       <RichTextViewer
                         html={isHtmlContent(summaryText) ? summaryText : null}
                         text={!isHtmlContent(summaryText) ? summaryText : null}
                       />
                     ) : (
-                      <p className="text-white/60">This item is discussion-only. Voting is not required for this slide.</p>
+                      <p className="text-[rgba(11,11,15,0.7)]">This item is discussion-only. Voting is not required for this slide.</p>
                     )}
-                  </div>
+                  </PopCard>
                 </div>
               )}
           </section>
