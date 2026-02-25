@@ -586,30 +586,31 @@ export default function MeetingOwnerPage() {
                   ) : null}
                 </PopCard>
 
-                <div className="grid flex-1 min-h-0 items-stretch gap-4 lg:grid-cols-[60%_40%]">
-                  <PopCard className="flex min-h-0 flex-col overflow-hidden bg-[#22A3FF] text-white border-[var(--border)] shadow-[var(--shadow-style)]">
-                    <div className="text-sm uppercase tracking-[0.18em] text-white/80 mb-2">Details</div>
-                    <div className="flex-1 min-h-0 overflow-auto space-y-3 text-sm leading-relaxed">
+                <div className="grid flex-1 min-h-0 grid-cols-1 items-stretch gap-6 lg:grid-cols-5">
+                  <PopCard className="col-span-1 flex min-h-0 flex-col overflow-hidden !bg-[#22A3FF] text-black border-[var(--border)] shadow-[var(--shadow-style)] lg:col-span-3">
+                    <div className="mb-2 text-sm uppercase tracking-[0.18em] text-black/90">Details</div>
+                    <div className="flex-1 min-h-0 overflow-auto space-y-3 text-sm leading-relaxed opacity-100 text-black slide-content-card [&_*]:opacity-100 [&_*]:text-black">
                       {summaryText ? (
                         <RichTextViewer
                           html={isHtmlContent(summaryText) ? summaryText : null}
                           text={!isHtmlContent(summaryText) ? summaryText : null}
-                          className="text-white prose-headings:text-white prose-strong:text-white prose-em:text-white"
+                          invert={false}
+                          className="opacity-100 text-black [&_*]:text-black [&_*]:opacity-100 prose-headings:text-black prose-strong:text-black prose-em:text-black"
                         />
                       ) : (
-                        <p className="text-white/80 italic">No details added yet.</p>
+                        <p className="italic text-black/90">No details added yet.</p>
                       )}
                     </div>
                   </PopCard>
 
-                  <div className="flex min-h-0 flex-col gap-4">
+                  <div className="grid min-h-0 grid-rows-2 gap-6 lg:col-span-2">
                     <PopCard className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-4 shadow-[6px_6px_0_#FF3B30]" aria-label="Proposal pros">
                       <div className="absolute inset-x-0 top-0 h-1 bg-[#FF3B30]" />
                       <div className="mb-2 flex items-center gap-2 text-[#FF3B30]">
                         <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#FF3B30] text-sm font-bold">+</span>
                         <span className="text-lg font-semibold">Pros</span>
                       </div>
-                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed text-black slide-content-card">
+                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed opacity-100 text-black slide-content-card [&_*]:text-black [&_*]:opacity-100">
                         {rationaleData.prosHtml ? (
                           <RichTextViewer html={rationaleData.prosHtml} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
                         ) : rationaleData.pros.length > 0 ? (
@@ -626,7 +627,7 @@ export default function MeetingOwnerPage() {
                         <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#FF3B30] text-sm font-bold">−</span>
                         <span className="text-lg font-semibold">Cons</span>
                       </div>
-                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed text-black slide-content-card">
+                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed opacity-100 text-black slide-content-card [&_*]:text-black [&_*]:opacity-100">
                         {rationaleData.consHtml ? (
                           <RichTextViewer html={rationaleData.consHtml} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
                         ) : rationaleData.cons.length > 0 ? (
