@@ -622,7 +622,7 @@ export default function MeetingOwnerPage() {
                 {/* Content area */}
                 <div className="flex flex-1 min-h-0 bg-[#F6F1E7]">
                   {/* Details panel (~60%) */}
-                  <div className="flex flex-[3] min-w-0 flex-col min-h-0 overflow-hidden bg-[#22A3FF] border-r-4 border-[#111111]">
+                  <div className="flex flex-[3] min-w-0 flex-col min-h-0 bg-[#22A3FF] border-r-4 border-[#111111]">
                     <div className="shrink-0 flex items-center gap-2 px-5 pt-4 pb-2">
                       <span aria-hidden className="text-white text-2xl leading-none">📋</span>
                       <span
