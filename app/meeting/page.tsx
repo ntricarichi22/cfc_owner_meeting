@@ -545,125 +545,126 @@ export default function MeetingOwnerPage() {
           </section>
         ) : (
           <section className="h-full flex flex-col gap-4 py-6">
-              {proposal && (proposal.proposal_type || "proposal") !== "admin" ? (
-                <div className="h-full min-h-0">
-                  <div className="grid h-full min-h-0 items-stretch gap-4 lg:grid-cols-[60%_40%]">
-                    <PopCard className="grid h-full min-h-0 grid-cols-[1fr_auto] gap-6 bg-[var(--accent-blue)] text-white border-[var(--border)] shadow-[var(--shadow-style)]">
-                      <div className="flex min-h-0 flex-col gap-4">
-                        <div className="space-y-2">
-                          <p className="text-xs uppercase tracking-[0.2em] text-white/75">Proposal</p>
-                          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight leading-tight">
-                            Proposal #{currentSlide}: {proposal?.title || "Untitled Proposal"}
-                          </h1>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Chip className="text-sm px-3 py-1 bg-[var(--card-surface)] text-[var(--ink)] shadow-[3px_3px_0_var(--shadow)]">Proposed by: {proposal?.proposed_by || "Commissioner"}</Chip>
-                          <Chip className="text-sm px-3 py-1 bg-[var(--card-surface)] text-[var(--ink)] shadow-[3px_3px_0_var(--shadow)]">Effective Date: {proposal?.effective_date || "TBD"}</Chip>
-                          <ConstitutionChips sections={linkedSections} />
-                        </div>
-
-                        <div className="flex-1 min-h-0 overflow-hidden rounded-[12px] border-[var(--border-width)] border-white/30 bg-white/10 p-4 slide-content-card">
-                          <div className="text-sm uppercase tracking-[0.18em] text-white/70 mb-2">Details</div>
-                          <div className="flex-1 overflow-y-auto space-y-3 text-sm leading-relaxed">
-                            {summaryText ? (
-                              <RichTextViewer
-                                html={isHtmlContent(summaryText) ? summaryText : null}
-                                text={!isHtmlContent(summaryText) ? summaryText : null}
-                              />
-                            ) : (
-                              <p className="text-white/80 italic">No details added yet.</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      {voteSessionStatus === "tallied" ? (
-                        <div className="flex h-full items-center justify-end">
-                          <div className="flex flex-col items-end gap-2">
-                            {voteSessionPassed ? (
-                              <SuccessButton onClick={() => setShowVotingModal(true)} className="px-5 py-2 text-sm border-[var(--border)] shadow-[var(--shadow-style)]">APPROVED</SuccessButton>
-                            ) : (
-                              <DangerButton onClick={() => setShowVotingModal(true)} className="px-5 py-2 text-sm border-[var(--border)] shadow-[var(--shadow-style)]">REJECTED</DangerButton>
-                            )}
-                          </div>
-                        </div>
-                      ) : isCommissioner ? (
-                        <div className="flex h-full items-center justify-end">
-                          <div className="flex flex-col items-end gap-2">
-                            <PrimaryButton onClick={handleStartVoting} className="px-7 py-4 text-lg bg-white text-[var(--ink)] border-[var(--border)] shadow-[var(--shadow-style)]">
-                              Start Voting
-                            </PrimaryButton>
-                            {startVotingError && (
-                              <p className="text-xs text-white">{startVotingError}</p>
-                            )}
-                          </div>
-                        </div>
-                      ) : null}
-                    </PopCard>
-
-                    <div className="flex h-full min-h-0 flex-col gap-4">
-                      <PopCard className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-4 shadow-[6px_6px_0_var(--accent-red)]" aria-label="Proposal pros">
-                        <div className="absolute inset-x-0 top-0 h-1 bg-[var(--accent-green)]" />
-                        <div className="mb-2 flex items-center gap-2 text-[var(--accent-red)]">
-                          <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-[var(--accent-red)] text-sm font-bold">+</span>
-                          <span className="text-lg font-semibold">Pros</span>
-                        </div>
-                        <div className="flex-1 overflow-y-auto text-sm leading-relaxed text-black slide-content-card">
-                          {rationaleData.prosHtml ? (
-                            <RichTextViewer html={rationaleData.prosHtml} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
-                          ) : rationaleData.pros.length > 0 ? (
-                            <RichTextViewer items={rationaleData.pros} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
-                          ) : (
-                            <p className="text-[rgba(11,11,15,0.7)] italic">Add pros...</p>
-                          )}
-                        </div>
-                      </PopCard>
-
-                      <PopCard className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-4 shadow-[6px_6px_0_var(--accent-red)]" aria-label="Proposal cons">
-                        <div className="absolute inset-x-0 top-0 h-1 bg-[var(--accent-red)]" />
-                        <div className="mb-2 flex items-center gap-2 text-[var(--accent-red)]">
-                          <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-[var(--accent-red)] text-sm font-bold">−</span>
-                          <span className="text-lg font-semibold">Cons</span>
-                        </div>
-                        <div className="flex-1 overflow-y-auto text-sm leading-relaxed text-black slide-content-card">
-                          {rationaleData.consHtml ? (
-                            <RichTextViewer html={rationaleData.consHtml} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
-                          ) : rationaleData.cons.length > 0 ? (
-                            <RichTextViewer items={rationaleData.cons} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
-                          ) : (
-                            <p className="text-[rgba(11,11,15,0.7)] italic">Add cons...</p>
-                          )}
-                        </div>
-                      </PopCard>
+            {proposal && (proposal.proposal_type || "proposal") !== "admin" ? (
+              <div className="flex h-full min-h-0 flex-col gap-4">
+                <PopCard className="grid grid-cols-1 items-start gap-6 bg-[var(--accent-blue)] text-white border-[var(--border)] shadow-[var(--shadow-style)] lg:grid-cols-[1fr_auto]">
+                  <div className="flex flex-col gap-4">
+                    <div className="space-y-2">
+                      <p className="text-xs uppercase tracking-[0.2em] text-white/75">Proposal</p>
+                      <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight leading-tight">
+                        Proposal #{currentSlide}: {proposal?.title || "Untitled Proposal"}
+                      </h1>
                     </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col h-full min-h-0 gap-4">
-                  <PopCard className="flex-shrink-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-xs uppercase tracking-[0.2em] text-[rgba(11,11,15,0.6)]">Admin Slide</span>
-                    </div>
-                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">
-                      {proposal?.title || "General agenda item"}
-                    </h1>
-                    <div className="flex flex-wrap items-center gap-2 mt-4">
-                      <Chip className="text-sm px-3 py-1">Proposed by: {proposal?.proposed_by || "Commissioner"}</Chip>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Chip className="text-sm px-3 py-1 bg-[var(--card-surface)] text-[var(--ink)] shadow-[3px_3px_0_var(--shadow)]">Proposed by: {proposal?.proposed_by || "Commissioner"}</Chip>
+                      <Chip className="text-sm px-3 py-1 bg-[var(--card-surface)] text-[var(--ink)] shadow-[3px_3px_0_var(--shadow)]">Effective Date: {proposal?.effective_date || "TBD"}</Chip>
                       <ConstitutionChips sections={linkedSections} />
                     </div>
+                  </div>
+                  {voteSessionStatus === "tallied" ? (
+                    <div className="flex h-full items-center justify-end">
+                      <div className="flex flex-col items-end gap-2">
+                        {voteSessionPassed ? (
+                          <SuccessButton onClick={() => setShowVotingModal(true)} className="px-8 py-4 text-lg border-[var(--border)] shadow-[var(--shadow-style)]">APPROVED</SuccessButton>
+                        ) : (
+                          <DangerButton onClick={() => setShowVotingModal(true)} className="px-8 py-4 text-lg border-[var(--border)] shadow-[var(--shadow-style)]">REJECTED</DangerButton>
+                        )}
+                      </div>
+                    </div>
+                  ) : isCommissioner ? (
+                    <div className="flex h-full items-center justify-end">
+                      <div className="flex flex-col items-end gap-2">
+                        <PrimaryButton onClick={handleStartVoting} className="px-10 py-5 text-xl bg-white text-[var(--ink)] border-[var(--border)] shadow-[var(--shadow-style)]">
+                          Start Voting
+                        </PrimaryButton>
+                        {startVotingError && (
+                          <p className="text-xs text-white">{startVotingError}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </PopCard>
+
+                <div className="grid flex-1 min-h-0 items-stretch gap-4 lg:grid-cols-[60%_40%]">
+                  <PopCard className="flex min-h-0 flex-col overflow-hidden bg-[#22A3FF] text-white border-[var(--border)] shadow-[var(--shadow-style)]">
+                    <div className="text-sm uppercase tracking-[0.18em] text-white/80 mb-2">Details</div>
+                    <div className="flex-1 min-h-0 overflow-auto space-y-3 text-sm leading-relaxed">
+                      {summaryText ? (
+                        <RichTextViewer
+                          html={isHtmlContent(summaryText) ? summaryText : null}
+                          text={!isHtmlContent(summaryText) ? summaryText : null}
+                          className="text-white prose-headings:text-white prose-strong:text-white prose-em:text-white"
+                        />
+                      ) : (
+                        <p className="text-white/80 italic">No details added yet.</p>
+                      )}
+                    </div>
                   </PopCard>
-                  <PopCard className="flex-1 min-h-0 overflow-auto">
-                    {summaryText ? (
-                      <RichTextViewer
-                        html={isHtmlContent(summaryText) ? summaryText : null}
-                        text={!isHtmlContent(summaryText) ? summaryText : null}
-                      />
-                    ) : (
-                      <p className="text-[rgba(11,11,15,0.7)]">This item is discussion-only. Voting is not required for this slide.</p>
-                    )}
-                  </PopCard>
+
+                  <div className="flex min-h-0 flex-col gap-4">
+                    <PopCard className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-4 shadow-[6px_6px_0_#FF3B30]" aria-label="Proposal pros">
+                      <div className="absolute inset-x-0 top-0 h-1 bg-[#FF3B30]" />
+                      <div className="mb-2 flex items-center gap-2 text-[#FF3B30]">
+                        <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#FF3B30] text-sm font-bold">+</span>
+                        <span className="text-lg font-semibold">Pros</span>
+                      </div>
+                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed text-black slide-content-card">
+                        {rationaleData.prosHtml ? (
+                          <RichTextViewer html={rationaleData.prosHtml} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
+                        ) : rationaleData.pros.length > 0 ? (
+                          <RichTextViewer items={rationaleData.pros} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
+                        ) : (
+                          <p className="text-[rgba(11,11,15,0.7)] italic">Add pros...</p>
+                        )}
+                      </div>
+                    </PopCard>
+
+                    <PopCard className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-4 shadow-[6px_6px_0_#FF3B30]" aria-label="Proposal cons">
+                      <div className="absolute inset-x-0 top-0 h-1 bg-[#FF3B30]" />
+                      <div className="mb-2 flex items-center gap-2 text-[#FF3B30]">
+                        <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#FF3B30] text-sm font-bold">−</span>
+                        <span className="text-lg font-semibold">Cons</span>
+                      </div>
+                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed text-black slide-content-card">
+                        {rationaleData.consHtml ? (
+                          <RichTextViewer html={rationaleData.consHtml} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
+                        ) : rationaleData.cons.length > 0 ? (
+                          <RichTextViewer items={rationaleData.cons} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
+                        ) : (
+                          <p className="text-[rgba(11,11,15,0.7)] italic">Add cons...</p>
+                        )}
+                      </div>
+                    </PopCard>
+                  </div>
                 </div>
-              )}
+              </div>
+            ) : (
+              <div className="flex flex-col h-full min-h-0 gap-4">
+                <PopCard className="flex-shrink-0">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-xs uppercase tracking-[0.2em] text-[rgba(11,11,15,0.6)]">Admin Slide</span>
+                  </div>
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">
+                    {proposal?.title || "General agenda item"}
+                  </h1>
+                  <div className="flex flex-wrap items-center gap-2 mt-4">
+                    <Chip className="text-sm px-3 py-1">Proposed by: {proposal?.proposed_by || "Commissioner"}</Chip>
+                    <ConstitutionChips sections={linkedSections} />
+                  </div>
+                </PopCard>
+                <PopCard className="flex-1 min-h-0 overflow-auto">
+                  {summaryText ? (
+                    <RichTextViewer
+                      html={isHtmlContent(summaryText) ? summaryText : null}
+                      text={!isHtmlContent(summaryText) ? summaryText : null}
+                    />
+                  ) : (
+                    <p className="text-[rgba(11,11,15,0.7)]">This item is discussion-only. Voting is not required for this slide.</p>
+                  )}
+                </PopCard>
+              </div>
+            )}
           </section>
         )}
       </main>
