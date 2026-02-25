@@ -700,7 +700,7 @@ export default function MeetingOwnerPage() {
                       <ConstitutionChips sections={linkedSections} />
                     </div>
                   </header>
-                  <div className="mt-4 flex-1 min-h-0 rounded-2xl border border-white/10 bg-white/[0.03] p-6 overflow-auto">
+                  <div className="slide-content-card mt-4 flex-1 min-h-0 rounded-2xl border border-white/10 bg-white/[0.03] p-6 overflow-auto">
                     {summaryText ? (
                       isHtmlContent(summaryText) ? (
                         <div
