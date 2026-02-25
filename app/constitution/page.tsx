@@ -1,5 +1,6 @@
 import Nav from "@/components/Nav";
 import ConstitutionAccordion from "@/components/ConstitutionAccordion";
+import { PopCard } from "@/components/ui/primitives";
 import { getSupabaseServer } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
@@ -50,16 +51,16 @@ export default async function ConstitutionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)]">
       <Nav />
 
       <div className="max-w-4xl mx-auto p-6">
-        <h1 className="text-2xl font-bold mb-6">Constitution</h1>
+        <h1 className="text-2xl font-bold tracking-tight mb-6">Constitution</h1>
 
         {error && (
-          <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-2 rounded mb-4">
-            {error}
-          </div>
+          <PopCard className="mb-4 border-[var(--border-width)] border-[var(--accent-red)] text-[var(--ink)]">
+            <p className="text-[var(--accent-red)] font-semibold">{error}</p>
+          </PopCard>
         )}
 
         <ConstitutionAccordion articles={articles} />

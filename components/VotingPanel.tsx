@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { DangerButton, PopCard, PrimaryButton, SuccessButton } from "@/components/ui/primitives";
 
 type VoteResponse = {
   status: "not_open" | "open" | "closed" | "tallied";
@@ -79,48 +80,41 @@ export default function VotingPanel({
   };
 
   return (
-    <div className="bg-gray-900 rounded-lg p-5 border border-gray-800 space-y-3">
+    <PopCard className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase">Voting</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-[rgba(11,11,15,0.65)]">Voting</h3>
       </div>
 
-      {message && <p className="text-xs text-blue-300">{message}</p>}
+      {message && <p className="text-xs text-[var(--accent-blue)]">{message}</p>}
 
       {data.status === "open" && (
         <>
           <div className="flex gap-2">
-            {(["YES", "NO"] as const).map((choice) => (
-              <button
-                key={choice}
-                onClick={() => cast(choice)}
-                className="px-3 py-2 bg-blue-700 hover:bg-blue-600 rounded text-xs font-semibold"
-              >
-                {choice}
-              </button>
-            ))}
+            <SuccessButton onClick={() => cast("YES")} className="px-4 py-2 text-xs font-semibold">YES</SuccessButton>
+            <DangerButton onClick={() => cast("NO")} className="px-4 py-2 text-xs font-semibold">NO</DangerButton>
           </div>
-          <p className="text-sm text-gray-300">
+          <p className="text-sm text-[rgba(11,11,15,0.75)]">
             {data.myVote ? `Vote submitted: ${String(data.myVote).toUpperCase()}` : "No vote submitted yet."}
           </p>
         </>
       )}
 
-      {data.status === "closed" && <p className="text-sm text-yellow-300">Voting closed. Awaiting tally.</p>}
-      {data.status === "not_open" && <p className="text-sm text-gray-400">Voting not open.</p>}
+      {data.status === "closed" && <p className="text-sm text-[rgba(11,11,15,0.75)]">Voting closed. Awaiting tally.</p>}
+      {data.status === "not_open" && <p className="text-sm text-[rgba(11,11,15,0.6)]">Voting not open.</p>}
 
       {data.status !== "tallied" && (
-        <p className="text-xs text-gray-500">Submitted votes: {data.submittedCount ?? 0}</p>
+        <p className="text-xs text-[rgba(11,11,15,0.55)]">Submitted votes: {data.submittedCount ?? 0}</p>
       )}
 
       {data.status === "tallied" && (
         <div className={presenterMode ? "space-y-4" : "space-y-2"}>
-          <p className={`${presenterMode ? "text-2xl" : "text-sm"} font-semibold ${data.passed ? "text-green-400" : "text-red-400"}`}>
+          <p className={`${presenterMode ? "text-2xl" : "text-sm"} font-semibold ${data.passed ? "text-[var(--accent-green)]" : "text-[var(--accent-red)]"}`}>
             {data.passed ? "PASSED" : "FAILED"}
           </p>
           <p className={presenterMode ? "text-2xl" : "text-sm"}>
             YES {data.totals?.yes ?? 0} • NO {data.totals?.no ?? 0}
           </p>
-          <div className="max-h-44 overflow-auto border border-gray-800 rounded p-2 text-xs">
+          <div className="max-h-44 overflow-auto border-[var(--border-width)] border-[var(--border)] rounded-[var(--radius)] p-2 text-xs bg-[var(--paper-bg)] shadow-[var(--shadow-style)]">
             {(data.rollCall || []).map((vote) => (
               <p key={vote.team_id}>{vote.team_name}: {String(vote.vote).toUpperCase()}</p>
             ))}
@@ -129,12 +123,12 @@ export default function VotingPanel({
       )}
 
       {isCommissioner && (
-        <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-800">
-          <button onClick={() => runControl("/api/voting/open")} disabled={data.status === "open"} className="px-3 py-1.5 bg-green-700 hover:bg-green-600 disabled:opacity-40 rounded text-xs">Open</button>
-          <button onClick={() => runControl("/api/voting/close")} disabled={data.status !== "open"} className="px-3 py-1.5 bg-yellow-700 hover:bg-yellow-600 disabled:opacity-40 rounded text-xs">Close</button>
-          <button onClick={() => runControl("/api/voting/tally")} disabled={data.status !== "closed"} className="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 rounded text-xs">Tally</button>
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-[rgba(17,24,39,0.2)]">
+          <SuccessButton onClick={() => runControl("/api/voting/open")} disabled={data.status === "open"} className="px-3 py-1.5 text-xs">Open</SuccessButton>
+          <PrimaryButton onClick={() => runControl("/api/voting/close")} disabled={data.status !== "open"} className="px-3 py-1.5 text-xs bg-[var(--accent-blue)]">Close</PrimaryButton>
+          <DangerButton onClick={() => runControl("/api/voting/tally")} disabled={data.status !== "closed"} className="px-3 py-1.5 text-xs">Tally</DangerButton>
         </div>
       )}
-    </div>
+    </PopCard>
   );
 }

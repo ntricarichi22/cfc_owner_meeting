@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased bg-black text-white font-sans">
+      <body className="antialiased bg-[var(--paper-bg)] text-[var(--ink)] font-sans">
         <SessionHeartbeat />
         {children}
       </body>
