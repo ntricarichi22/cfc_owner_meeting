@@ -101,6 +101,20 @@ h1, h2, h3, h4, h5, h6 {
   white-space: normal;
 }
 
+/* Scoped safeguard: no mid-word breaks in proposal slide rich text panels */
+.cfc-richtext,
+.cfc-richtext * {
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+
+/* URLs and code may still break if they overflow */
+.cfc-richtext a,
+.cfc-richtext code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .cfc-num {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-weight: 700;

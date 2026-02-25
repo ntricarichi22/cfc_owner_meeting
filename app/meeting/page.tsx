@@ -632,7 +632,7 @@ export default function MeetingOwnerPage() {
                         Details
                       </span>
                     </div>
-                    <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 slide-content-card text-white [&_*]:text-white [&_*]:opacity-100">
+                    <div className="flex-1 min-w-0 max-w-full min-h-0 overflow-y-auto px-5 pb-5 slide-content-card cfc-richtext text-white [&_*]:text-white [&_*]:opacity-100">
                       {summaryText ? (
                         <RichTextViewer
                           html={isHtmlContent(summaryText) ? summaryText : null}
@@ -661,7 +661,7 @@ export default function MeetingOwnerPage() {
                           Pros
                         </span>
                       </div>
-                      <div className="flex-1 overflow-y-auto overflow-x-hidden text-sm leading-relaxed text-[#111111] [&_*]:text-[#111111] [&_*]:opacity-100">
+                      <div className="flex-1 min-w-0 max-w-full overflow-y-auto overflow-x-hidden cfc-richtext text-sm leading-relaxed text-[#111111] [&_*]:text-[#111111] [&_*]:opacity-100">
                         {rationaleData.prosHtml ? (
                           <RichTextViewer html={rationaleData.prosHtml} invert={false} className="text-[#111111] prose-headings:text-[#111111] prose-strong:text-[#111111] prose-em:text-[#111111]" />
                         ) : rationaleData.pros.length > 0 ? (
@@ -685,7 +685,7 @@ export default function MeetingOwnerPage() {
                           Cons
                         </span>
                       </div>
-                      <div className="flex-1 overflow-y-auto overflow-x-hidden text-sm leading-relaxed text-[#111111] [&_*]:text-[#111111] [&_*]:opacity-100">
+                      <div className="flex-1 min-w-0 max-w-full overflow-y-auto overflow-x-hidden cfc-richtext text-sm leading-relaxed text-[#111111] [&_*]:text-[#111111] [&_*]:opacity-100">
                         {rationaleData.consHtml ? (
                           <RichTextViewer html={rationaleData.consHtml} invert={false} className="text-[#111111] prose-headings:text-[#111111] prose-strong:text-[#111111] prose-em:text-[#111111]" />
                         ) : rationaleData.cons.length > 0 ? (
