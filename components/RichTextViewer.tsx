@@ -14,20 +14,19 @@ interface RichTextViewerProps {
 function transformNumberedParagraphs(html: string): string {
   let result = html;
 
-  // Case 1: Marker-only paragraph immediately followed by a content paragraph.
-  // Handles Quill HTML like: <p>2|</p><p>text</p>  OR  <p class="ql-...">2|</p><p class="ql-...">text</p>
+  // Case 1: Marker-only paragraph (Quill sometimes emits <p>2|<br></p>) immediately
+  // followed by a content paragraph. Handles bare and class-attributed <p> variants.
   result = result.replace(
-    /<p[^>]*>\s*(\d+)\|\s*<\/p>\s*<p[^>]*>([\s\S]*?)<\/p>/gi,
+    /<p[^>]*>\s*(\d+)\|\s*(?:<br\s*\/?>\s*)?<\/p>\s*<p[^>]*>([\s\S]*?)<\/p>/gi,
     (_m, num, content) =>
-      `<div class="cfc-pipe-row"><span class="cfc-num">${num}|</span><span class="cfc-pipe-text">${content}</span></div>`,
+      `<p class="cfc-pipe-row"><span class="cfc-num">${num}|</span><span class="cfc-pipe-text">${content}</span></p>`,
   );
 
   // Case 2: Marker at the start of a paragraph followed by text in the same paragraph.
-  // Handles: <p>2| text here</p>  OR  <p class="ql-...">2| text here</p>
   result = result.replace(
     /<p[^>]*>\s*(\d+)\|[ \t]+([\s\S]*?)<\/p>/gi,
     (_m, num, content) =>
-      `<div class="cfc-pipe-row"><span class="cfc-num">${num}|</span><span class="cfc-pipe-text">${content}</span></div>`,
+      `<p class="cfc-pipe-row"><span class="cfc-num">${num}|</span><span class="cfc-pipe-text">${content}</span></p>`,
   );
 
   return result;
