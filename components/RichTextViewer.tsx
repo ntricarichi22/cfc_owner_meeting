@@ -8,6 +8,7 @@ interface RichTextViewerProps {
   text?: string | null;
   items?: string[];
   className?: string;
+  invert?: boolean;
 }
 
 function transformNumberedParagraphs(html: string) {
@@ -23,7 +24,7 @@ function transformNumberedParagraphs(html: string) {
   return transformed;
 }
 
-export default function RichTextViewer({ html, text, items, className = "" }: RichTextViewerProps) {
+export default function RichTextViewer({ html, text, items, className = "", invert = true }: RichTextViewerProps) {
   const sanitizedHtml = useMemo(() => {
     if (!html) return null;
     const safe = DOMPurify.sanitize(html);
@@ -33,7 +34,11 @@ export default function RichTextViewer({ html, text, items, className = "" }: Ri
   if (sanitizedHtml) {
     return (
       <div
-        className={`rich-text-viewer prose prose-invert prose-sm md:prose-base max-w-none break-normal whitespace-pre-wrap hyphens-none text-white/90 leading-relaxed ${className}`}
+        className={`rich-text-viewer prose prose-sm md:prose-base max-w-none break-normal whitespace-pre-wrap hyphens-none leading-relaxed ${
+          invert
+            ? "prose-invert text-white/90"
+            : "text-[var(--ink)] prose-headings:text-[var(--ink)] prose-strong:text-[var(--ink)] prose-em:text-[var(--ink)]"
+        } ${className}`}
         dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
       />
     );
@@ -41,7 +46,11 @@ export default function RichTextViewer({ html, text, items, className = "" }: Ri
 
   if (items && items.length > 0) {
     return (
-      <ul className={`rich-text-viewer list-disc list-inside space-y-2 text-white/90 text-base md:text-lg leading-relaxed break-normal whitespace-pre-wrap hyphens-none ${className}`}>
+      <ul
+        className={`rich-text-viewer list-disc list-inside space-y-2 ${
+          invert ? "text-white/90" : "text-[var(--ink)]"
+        } text-base md:text-lg leading-relaxed break-normal whitespace-pre-wrap hyphens-none ${className}`}
+      >
         {items.map((item, index) => (
           <li key={index}>{item}</li>
         ))}
@@ -51,7 +60,11 @@ export default function RichTextViewer({ html, text, items, className = "" }: Ri
 
   if (text) {
     return (
-      <div className={`rich-text-viewer space-y-3 text-white/90 text-base md:text-lg leading-relaxed break-normal whitespace-pre-wrap hyphens-none ${className}`}>
+      <div
+        className={`rich-text-viewer space-y-3 ${
+          invert ? "text-white/90" : "text-[var(--ink)]"
+        } text-base md:text-lg leading-relaxed break-normal whitespace-pre-wrap hyphens-none ${className}`}
+      >
         {text
           .split(/\n{2,}/)
           .map((block, idx) => (
