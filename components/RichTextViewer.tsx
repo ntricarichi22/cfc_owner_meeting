@@ -13,13 +13,15 @@ interface RichTextViewerProps {
 
 function transformNumberedParagraphs(html: string) {
   let transformed = html;
+  // Case 1: Number marker alone in its own paragraph, text follows in next paragraph
   transformed = transformed.replace(
-    /<p>\s*(\d+)\|\s*<\/p>\s*<p>/gi,
-    '<p><span class="cfc-num">$1|</span> '
+    /<p>\s*(\d+)\|\s*<\/p>\s*<p>([\s\S]*?)<\/p>/gi,
+    '<div class="cfc-row"><span class="cfc-num">$1|</span><div class="cfc-text">$2</div></div>'
   );
+  // Case 2: Number marker and text in the same paragraph
   transformed = transformed.replace(
-    /<p>\s*(\d+)\|\s+/gi,
-    '<p><span class="cfc-num">$1|</span> '
+    /<p>\s*(\d+)\|\s+([\s\S]*?)<\/p>/gi,
+    '<div class="cfc-row"><span class="cfc-num">$1|</span><div class="cfc-text">$2</div></div>'
   );
   return transformed;
 }
@@ -36,7 +38,7 @@ export default function RichTextViewer({ html, text, items, className = "", inve
       <div
         className={`rich-text-viewer prose prose-sm md:prose-base max-w-none break-normal whitespace-pre-wrap hyphens-none leading-relaxed ${
           invert
-            ? "prose-invert text-white/90"
+            ? "prose-invert text-white"
             : "text-[var(--ink)] prose-headings:text-[var(--ink)] prose-strong:text-[var(--ink)] prose-em:text-[var(--ink)]"
         } ${className}`}
         dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
@@ -48,7 +50,7 @@ export default function RichTextViewer({ html, text, items, className = "", inve
     return (
       <ul
         className={`rich-text-viewer list-disc list-inside space-y-2 ${
-          invert ? "text-white/90" : "text-[var(--ink)]"
+          invert ? "text-white" : "text-[var(--ink)]"
         } text-base md:text-lg leading-relaxed break-normal whitespace-pre-wrap hyphens-none ${className}`}
       >
         {items.map((item, index) => (
@@ -62,7 +64,7 @@ export default function RichTextViewer({ html, text, items, className = "", inve
     return (
       <div
         className={`rich-text-viewer space-y-3 ${
-          invert ? "text-white/90" : "text-[var(--ink)]"
+          invert ? "text-white" : "text-[var(--ink)]"
         } text-base md:text-lg leading-relaxed break-normal whitespace-pre-wrap hyphens-none ${className}`}
       >
         {text
