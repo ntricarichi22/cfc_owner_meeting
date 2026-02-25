@@ -105,13 +105,15 @@ h1, h2, h3, h4, h5, h6 {
 .proposal-richtext,
 .proposal-richtext * {
   word-break: normal !important;
-  overflow-wrap: break-word !important;
+  overflow-wrap: normal !important;
   white-space: normal !important;
+  hyphens: none !important;
 }
 
 /* URLs and code may break anywhere to avoid overflow */
 .proposal-richtext a,
-.proposal-richtext code {
+.proposal-richtext code,
+.proposal-richtext pre {
   overflow-wrap: anywhere !important;
   word-break: break-word !important;
 }
