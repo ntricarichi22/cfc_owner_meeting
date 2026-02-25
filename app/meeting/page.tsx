@@ -589,7 +589,7 @@ export default function MeetingOwnerPage() {
                 <div className="grid flex-1 min-h-0 grid-cols-1 items-stretch gap-6 lg:grid-cols-5">
                   <PopCard className="col-span-1 flex min-h-0 flex-col overflow-hidden !bg-[#22A3FF] text-black border-[var(--border)] shadow-[var(--shadow-style)] lg:col-span-3">
                     <div className="mb-2 text-sm uppercase tracking-[0.18em] text-black/90">Details</div>
-                    <div className="flex-1 min-h-0 overflow-auto space-y-3 text-sm leading-relaxed opacity-100 text-black slide-content-card [&_*]:opacity-100 [&_*]:text-black">
+                    <div className="flex-1 min-h-0 overflow-auto space-y-3 text-sm leading-relaxed opacity-100 text-black text-pretty slide-content-card [&_*]:opacity-100 [&_*]:text-black">
                       {summaryText ? (
                         <RichTextViewer
                           html={isHtmlContent(summaryText) ? summaryText : null}
@@ -610,7 +610,7 @@ export default function MeetingOwnerPage() {
                         <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#FF3B30] text-sm font-bold">+</span>
                         <span className="text-lg font-semibold">Pros</span>
                       </div>
-                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed opacity-100 text-black slide-content-card [&_*]:text-black [&_*]:opacity-100">
+                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed opacity-100 text-black text-pretty slide-content-card [&_*]:text-black [&_*]:opacity-100">
                         {rationaleData.prosHtml ? (
                           <RichTextViewer html={rationaleData.prosHtml} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
                         ) : rationaleData.pros.length > 0 ? (
@@ -627,7 +627,7 @@ export default function MeetingOwnerPage() {
                         <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#FF3B30] text-sm font-bold">−</span>
                         <span className="text-lg font-semibold">Cons</span>
                       </div>
-                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed opacity-100 text-black slide-content-card [&_*]:text-black [&_*]:opacity-100">
+                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed opacity-100 text-black text-pretty slide-content-card [&_*]:text-black [&_*]:opacity-100">
                         {rationaleData.consHtml ? (
                           <RichTextViewer html={rationaleData.consHtml} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
                         ) : rationaleData.cons.length > 0 ? (
