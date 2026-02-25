@@ -101,18 +101,19 @@ h1, h2, h3, h4, h5, h6 {
   white-space: normal;
 }
 
-/* Scoped safeguard: no mid-word breaks in proposal slide rich text panels */
-.cfc-richtext,
-.cfc-richtext * {
-  word-break: keep-all;
-  overflow-wrap: normal;
+/* Scoped hard-stop: no mid-word breaks in proposal slide rich text panels */
+.proposal-richtext,
+.proposal-richtext * {
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
 }
 
-/* URLs and code may still break if they overflow */
-.cfc-richtext a,
-.cfc-richtext code {
-  overflow-wrap: anywhere;
-  word-break: break-word;
+/* URLs and code may break anywhere to avoid overflow */
+.proposal-richtext a,
+.proposal-richtext code {
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
 }
 
 .cfc-num {

@@ -42,7 +42,7 @@ export default function RichTextViewer({ html, text, items, className = "", inve
   if (sanitizedHtml) {
     return (
       <div
-        className={`rich-text-viewer prose prose-sm md:prose-base max-w-none break-keep break-normal whitespace-normal hyphens-none leading-relaxed ${
+        className={`rich-text-viewer prose prose-sm md:prose-base max-w-none break-normal whitespace-normal hyphens-none leading-relaxed ${
           invert
             ? "prose-invert text-white/90"
             : "text-[var(--ink)] prose-headings:text-[var(--ink)] prose-strong:text-[var(--ink)] prose-em:text-[var(--ink)]"
@@ -57,7 +57,7 @@ export default function RichTextViewer({ html, text, items, className = "", inve
       <ul
         className={`rich-text-viewer list-disc list-inside space-y-2 ${
           invert ? "text-white/90" : "text-[var(--ink)]"
-        } text-base md:text-lg leading-relaxed break-keep break-normal whitespace-normal hyphens-none ${className}`}
+        } text-base md:text-lg leading-relaxed break-normal whitespace-normal hyphens-none ${className}`}
       >
         {items.map((item, index) => (
           <li key={index}>{item}</li>
@@ -71,7 +71,7 @@ export default function RichTextViewer({ html, text, items, className = "", inve
       <div
         className={`rich-text-viewer space-y-3 ${
           invert ? "text-white/90" : "text-[var(--ink)]"
-        } text-base md:text-lg leading-relaxed break-keep break-normal whitespace-normal hyphens-none ${className}`}
+        } text-base md:text-lg leading-relaxed break-normal whitespace-normal hyphens-none ${className}`}
       >
         {text
           .split(/\n{2,}/)
