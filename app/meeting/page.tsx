@@ -547,11 +547,11 @@ export default function MeetingOwnerPage() {
           <section className="h-full flex flex-col gap-4 py-6">
             {proposal && (proposal.proposal_type || "proposal") !== "admin" ? (
               <div className="flex h-full min-h-0 flex-col gap-4">
-                <PopCard className="grid grid-cols-1 items-start gap-6 bg-[var(--accent-blue)] text-white border-[var(--border)] shadow-[var(--shadow-style)] lg:grid-cols-[1fr_auto]">
+                <PopCard className="grid grid-cols-1 items-start gap-6 border-[var(--border)] shadow-[var(--shadow-style)] lg:grid-cols-[1fr_auto]">
                   <div className="flex flex-col gap-4">
                     <div className="space-y-2">
-                      <p className="text-xs uppercase tracking-[0.2em] text-white/75">Proposal</p>
-                      <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight leading-tight">
+                      <p className="text-xs uppercase tracking-[0.2em] text-[rgba(11,11,15,0.6)]">Proposal</p>
+                      <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight leading-tight text-neutral-900">
                         Proposal #{currentSlide}: {proposal?.title || "Untitled Proposal"}
                       </h1>
                     </div>
@@ -579,7 +579,7 @@ export default function MeetingOwnerPage() {
                           Start Voting
                         </PrimaryButton>
                         {startVotingError && (
-                          <p className="text-xs text-white">{startVotingError}</p>
+                          <p className="text-xs text-[var(--accent-red)]">{startVotingError}</p>
                         )}
                       </div>
                     </div>
@@ -587,30 +587,29 @@ export default function MeetingOwnerPage() {
                 </PopCard>
 
                 <div className="grid flex-1 min-h-0 grid-cols-1 items-stretch gap-6 lg:grid-cols-5">
-                  <PopCard className="col-span-1 flex min-h-0 flex-col overflow-hidden !bg-[#22A3FF] text-black border-[var(--border)] shadow-[var(--shadow-style)] lg:col-span-3">
-                    <div className="mb-2 text-sm uppercase tracking-[0.18em] text-black/90">Details</div>
-                    <div className="flex-1 min-h-0 overflow-auto space-y-3 text-sm leading-relaxed opacity-100 text-black slide-content-card [&_*]:opacity-100 [&_*]:text-black">
+                  <PopCard className="col-span-1 flex min-h-0 flex-col overflow-hidden !bg-[#22A3FF] text-white border-[var(--border)] shadow-[var(--shadow-style)] lg:col-span-3">
+                    <div className="mb-2 text-sm uppercase tracking-[0.18em] text-white">Details</div>
+                    <div className="flex-1 min-h-0 min-w-0 overflow-auto space-y-3 text-sm leading-relaxed text-white slide-content-card [&_*]:text-white">
                       {summaryText ? (
                         <RichTextViewer
                           html={isHtmlContent(summaryText) ? summaryText : null}
                           text={!isHtmlContent(summaryText) ? summaryText : null}
-                          invert={false}
-                          className="opacity-100 text-black [&_*]:text-black [&_*]:opacity-100 prose-headings:text-black prose-strong:text-black prose-em:text-black"
+                          invert={true}
+                          className="text-white [&_*]:text-white prose-headings:text-white prose-strong:text-white prose-em:text-white"
                         />
                       ) : (
-                        <p className="italic text-black/90">No details added yet.</p>
+                        <p className="italic text-white/90">No details added yet.</p>
                       )}
                     </div>
                   </PopCard>
 
                   <div className="grid min-h-0 grid-rows-2 gap-6 lg:col-span-2">
-                    <PopCard className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-4 shadow-[6px_6px_0_#FF3B30]" aria-label="Proposal pros">
-                      <div className="absolute inset-x-0 top-0 h-1 bg-[#FF3B30]" />
+                    <PopCard className="flex min-h-0 flex-1 flex-col overflow-hidden shadow-[6px_6px_0_#FF3B30]" aria-label="Proposal pros">
                       <div className="mb-2 flex items-center gap-2 text-[#FF3B30]">
                         <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#FF3B30] text-sm font-bold">+</span>
                         <span className="text-lg font-semibold">Pros</span>
                       </div>
-                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed opacity-100 text-black slide-content-card [&_*]:text-black [&_*]:opacity-100">
+                      <div className="flex-1 min-w-0 overflow-y-auto text-sm leading-relaxed text-black slide-content-card [&_*]:text-black">
                         {rationaleData.prosHtml ? (
                           <RichTextViewer html={rationaleData.prosHtml} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
                         ) : rationaleData.pros.length > 0 ? (
@@ -621,13 +620,12 @@ export default function MeetingOwnerPage() {
                       </div>
                     </PopCard>
 
-                    <PopCard className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-4 shadow-[6px_6px_0_#FF3B30]" aria-label="Proposal cons">
-                      <div className="absolute inset-x-0 top-0 h-1 bg-[#FF3B30]" />
+                    <PopCard className="flex min-h-0 flex-1 flex-col overflow-hidden shadow-[6px_6px_0_#FF3B30]" aria-label="Proposal cons">
                       <div className="mb-2 flex items-center gap-2 text-[#FF3B30]">
                         <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#FF3B30] text-sm font-bold">−</span>
                         <span className="text-lg font-semibold">Cons</span>
                       </div>
-                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed opacity-100 text-black slide-content-card [&_*]:text-black [&_*]:opacity-100">
+                      <div className="flex-1 min-w-0 overflow-y-auto text-sm leading-relaxed text-black slide-content-card [&_*]:text-black">
                         {rationaleData.consHtml ? (
                           <RichTextViewer html={rationaleData.consHtml} invert={false} className="text-black prose-headings:text-black prose-strong:text-black prose-em:text-black" />
                         ) : rationaleData.cons.length > 0 ? (

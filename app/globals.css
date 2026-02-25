@@ -101,13 +101,24 @@ h1, h2, h3, h4, h5, h6 {
   white-space: pre-wrap;
 }
 
+.cfc-row {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 0.25rem;
+}
+
 .cfc-num {
-  display: inline-block;
+  flex-shrink: 0;
   width: 2.25rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   color: rgba(11, 11, 15, 0.55);
   text-align: right;
   margin-right: 0.5rem;
+}
+
+.cfc-text {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Render Quill font families in slide display */
