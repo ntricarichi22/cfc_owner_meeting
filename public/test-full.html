@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Full Layout Test</title>
+<style>
+/* Replicate globals.css */
+:root {
+  --paper-bg: #F6F1E7;
+  --card-surface: #FFF9EE;
+  --ink: #0B0B0F;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body { background: var(--paper-bg); margin: 0; font-family: sans-serif; }
+
+.slide-content-card { word-break: normal; overflow-wrap: normal; hyphens: none; }
+.slide-content-card .prose, .rich-text-viewer { word-break: normal; overflow-wrap: break-word; hyphens: none; }
+.slide-content-card .prose a, .rich-text-viewer a { word-break: break-word; }
+.rich-text-viewer p, .rich-text-viewer li { white-space: normal; }
+
+.proposal-richtext, .proposal-richtext * {
+  white-space: pre-wrap !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  hyphens: none !important;
+  max-width: 100% !important;
+}
+.proposal-richtext a, .proposal-richtext code, .proposal-richtext pre {
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+
+/* Tailwind-like utilities */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.flex-1 { flex: 1 1 0%; }
+.flex-3 { flex: 3 3 0%; }
+.flex-2 { flex: 2 2 0%; }
+.shrink-0 { flex-shrink: 0; }
+.min-w-0 { min-width: 0; }
+.min-h-0 { min-height: 0; }
+.max-w-none { max-width: none; }
+.max-w-full { max-width: 100%; }
+.overflow-hidden { overflow: hidden; }
+.overflow-y-auto { overflow-y: auto; }
+.overflow-x-hidden { overflow-x: hidden; }
+.whitespace-normal { white-space: normal; }
+.whitespace-pre-wrap { white-space: pre-wrap; }
+.break-normal { overflow-wrap: normal; word-break: normal; }
+.hyphens-none { hyphens: none; }
+.rounded-2xl { border-radius: 1rem; }
+.h-full { height: 100%; }
+.p-4 { padding: 1rem; }
+.px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+.pb-5 { padding-bottom: 1.25rem; }
+.gap-4 { gap: 1rem; }
+.border-r-4 { border-right: 4px solid; }
+.border-4 { border: 4px solid; }
+.bg-blue { background-color: #22A3FF; }
+.bg-beige { background-color: #F6F1E7; }
+.text-white { color: white; }
+.text-dark { color: #111111; }
+.items-start { align-items: flex-start; }
+
+/* Simulate prose class */
+.prose { max-width: 65ch; line-height: 1.75; }
+.prose.max-w-none { max-width: none; }
+.prose p { margin: 1.25em 0; }
+</style>
+</head>
+<body>
+<div style="height: 100vh; display: flex; flex-direction: column; padding: 1rem;">
+  <h2>Simulated Meeting Page - Proposal Slide</h2>
+  
+  <!-- Exact replica of the proposal slide structure -->
+  <div class="flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border-4" style="border-color:#111111; height: calc(100vh - 60px);">
+    <!-- Header band -->
+    <div class="shrink-0" style="padding: 1rem; background: #F6F1E7; border-bottom: 4px solid #111111;">
+      <h1 style="margin:0; font-size: 2rem;">Proposal #1: Test Proposal Title</h1>
+    </div>
+    
+    <!-- Content area -->
+    <div class="flex flex-1 min-h-0" style="background: #F6F1E7;">
+      
+      <!-- Details panel (~60%) - with overflow-hidden (current state) -->
+      <div class="flex flex-3 min-w-0 flex-col min-h-0 overflow-hidden bg-blue" style="border-right: 4px solid #111111;">
+        <div class="shrink-0" style="padding: 1rem 1.25rem 0.5rem; color: white; font-size: 1.5rem; font-weight: bold;">
+          📋 DETAILS
+        </div>
+        <!-- This is the scroll container (line 635 in meeting/page.tsx) -->
+        <div class="flex-1 min-w-0 max-w-full min-h-0 overflow-y-auto overflow-x-hidden px-5 pb-5 slide-content-card proposal-richtext whitespace-pre-wrap break-normal hyphens-none">
+          <!-- This is what RichTextViewer renders (with whitespace-normal class) -->
+          <div class="rich-text-viewer prose max-w-none break-normal whitespace-normal hyphens-none">
+            <p style="color:white;">This is a very long sentence that should wrap naturally at spaces and not be clipped under any circumstances. We want to make absolutely sure that this text wraps properly within the container and does not overflow or get hidden horizontally. The sentence continues here with more words to ensure it's longer than one line.</p>
+            <p style="color:white;">Second paragraph with more text that is also quite long and should wrap at the natural word boundaries without any mid-word breaking ever happening. This is important for readability of the proposals during the owners meeting.</p>
+            <p style="color:white;">Here is a URL that should break: https://www.example.com/this-is-a-very-long-url-that-should-break-at-word-boundaries-if-needed-for-display</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Pros + Cons (~40%) -->
+      <div class="flex flex-2 min-w-0 flex-col min-h-0 gap-4 p-4">
+        <!-- Pros card -->
+        <div class="flex flex-1 flex-col min-h-0 overflow-hidden bg-beige border-4 rounded-2xl p-4" style="border-color:#111111;">
+          <div class="shrink-0" style="font-size: 1.2rem; font-weight: bold; margin-bottom: 0.5rem;">👍 PROS</div>
+          <!-- This is the pros scroll container (line 664) -->
+          <div class="flex-1 min-w-0 max-w-full min-h-0 overflow-y-auto overflow-x-hidden proposal-richtext whitespace-pre-wrap break-normal hyphens-none text-dark">
+            <div class="rich-text-viewer prose max-w-none break-normal whitespace-normal hyphens-none">
+              <p>This is a pros item that has quite a bit of text and should wrap naturally within the card boundaries without any clipping or overflow issues.</p>
+              <p>Second pros item with even more text that continues for a while to test the wrapping behavior in the pros panel specifically.</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Cons card -->
+        <div class="flex flex-1 flex-col min-h-0 overflow-hidden bg-beige border-4 rounded-2xl p-4" style="border-color:#111111;">
+          <div class="shrink-0" style="font-size: 1.2rem; font-weight: bold; margin-bottom: 0.5rem;">👎 CONS</div>
+          <!-- This is the cons scroll container (line 688) -->
+          <div class="flex-1 min-w-0 max-w-full min-h-0 overflow-y-auto overflow-x-hidden proposal-richtext whitespace-pre-wrap break-normal hyphens-none text-dark">
+            <div class="rich-text-viewer prose max-w-none break-normal whitespace-normal hyphens-none">
+              <p>This is a cons item that explains why there might be issues with this proposal and why it should be considered carefully before voting.</p>
+              <p>Second cons item with a longer explanation that goes into more detail about the potential negative aspects of this particular proposal.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+</body>
+</html>
