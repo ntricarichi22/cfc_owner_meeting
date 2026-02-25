@@ -34,7 +34,7 @@ export default function RichTextViewer({ html, text, items, className = "", inve
   if (sanitizedHtml) {
     return (
       <div
-        className={`rich-text-viewer prose prose-sm md:prose-base max-w-none break-normal whitespace-pre-wrap hyphens-none leading-relaxed ${
+        className={`proposal-richtext rich-text-viewer prose prose-sm md:prose-base max-w-full min-w-0 overflow-x-hidden break-normal whitespace-pre-wrap hyphens-none leading-relaxed ${
           invert
             ? "prose-invert text-white/90"
             : "text-[var(--ink)] prose-headings:text-[var(--ink)] prose-strong:text-[var(--ink)] prose-em:text-[var(--ink)]"
@@ -47,7 +47,7 @@ export default function RichTextViewer({ html, text, items, className = "", inve
   if (items && items.length > 0) {
     return (
       <ul
-        className={`rich-text-viewer list-disc list-inside space-y-2 ${
+        className={`proposal-richtext rich-text-viewer list-disc list-inside space-y-2 ${
           invert ? "text-white/90" : "text-[var(--ink)]"
         } text-base md:text-lg leading-relaxed break-normal whitespace-pre-wrap hyphens-none ${className}`}
       >
@@ -61,7 +61,7 @@ export default function RichTextViewer({ html, text, items, className = "", inve
   if (text) {
     return (
       <div
-        className={`rich-text-viewer space-y-3 ${
+        className={`proposal-richtext rich-text-viewer space-y-3 ${
           invert ? "text-white/90" : "text-[var(--ink)]"
         } text-base md:text-lg leading-relaxed break-normal whitespace-pre-wrap hyphens-none ${className}`}
       >
