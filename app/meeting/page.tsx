@@ -622,7 +622,7 @@ export default function MeetingOwnerPage() {
                 {/* Content area */}
                 <div className="flex flex-1 min-h-0 bg-[#F6F1E7]">
                   {/* Details panel (~60%) */}
-                  <div className="flex flex-[3] flex-col min-h-0 overflow-hidden bg-[#22A3FF] border-r-4 border-[#111111]">
+                  <div className="flex flex-[3] min-w-0 flex-col min-h-0 overflow-hidden bg-[#22A3FF] border-r-4 border-[#111111]">
                     <div className="shrink-0 flex items-center gap-2 px-5 pt-4 pb-2">
                       <span aria-hidden className="text-white text-2xl leading-none">📋</span>
                       <span
@@ -632,7 +632,7 @@ export default function MeetingOwnerPage() {
                         Details
                       </span>
                     </div>
-                    <div className="flex-1 min-h-0 overflow-auto px-5 pb-5 slide-content-card text-white [&_*]:text-white [&_*]:opacity-100">
+                    <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 slide-content-card text-white [&_*]:text-white [&_*]:opacity-100">
                       {summaryText ? (
                         <RichTextViewer
                           html={isHtmlContent(summaryText) ? summaryText : null}
@@ -647,7 +647,7 @@ export default function MeetingOwnerPage() {
                   </div>
 
                   {/* Pros + Cons (~40%) */}
-                  <div className="flex flex-[2] flex-col min-h-0 gap-4 p-4">
+                  <div className="flex flex-[2] min-w-0 flex-col min-h-0 gap-4 p-4">
                     <div
                       className="flex flex-1 flex-col min-h-0 overflow-hidden bg-[#F6F1E7] border-4 border-[#111111] shadow-[6px_6px_0_#111111] rounded-2xl p-4 slide-content-card"
                       aria-label="Proposal pros"
@@ -661,7 +661,7 @@ export default function MeetingOwnerPage() {
                           Pros
                         </span>
                       </div>
-                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed text-[#111111] [&_*]:text-[#111111] [&_*]:opacity-100">
+                      <div className="flex-1 overflow-y-auto overflow-x-hidden text-sm leading-relaxed text-[#111111] [&_*]:text-[#111111] [&_*]:opacity-100">
                         {rationaleData.prosHtml ? (
                           <RichTextViewer html={rationaleData.prosHtml} invert={false} className="text-[#111111] prose-headings:text-[#111111] prose-strong:text-[#111111] prose-em:text-[#111111]" />
                         ) : rationaleData.pros.length > 0 ? (
@@ -685,7 +685,7 @@ export default function MeetingOwnerPage() {
                           Cons
                         </span>
                       </div>
-                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed text-[#111111] [&_*]:text-[#111111] [&_*]:opacity-100">
+                      <div className="flex-1 overflow-y-auto overflow-x-hidden text-sm leading-relaxed text-[#111111] [&_*]:text-[#111111] [&_*]:opacity-100">
                         {rationaleData.consHtml ? (
                           <RichTextViewer html={rationaleData.consHtml} invert={false} className="text-[#111111] prose-headings:text-[#111111] prose-strong:text-[#111111] prose-em:text-[#111111]" />
                         ) : rationaleData.cons.length > 0 ? (
