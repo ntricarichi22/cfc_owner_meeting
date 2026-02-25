@@ -11,17 +11,26 @@ interface RichTextViewerProps {
   invert?: boolean;
 }
 
-function transformNumberedParagraphs(html: string) {
-  let transformed = html;
-  transformed = transformed.replace(
-    /<p>\s*(\d+)\|\s*<\/p>\s*<p>/gi,
-    '<p><span class="cfc-num">$1|</span> '
+function transformNumberedParagraphs(html: string): string {
+  let result = html;
+
+  // Case 1: Marker-only paragraph immediately followed by a content paragraph.
+  // Handles Quill HTML like: <p>2|</p><p>text</p>  OR  <p class="ql-...">2|</p><p class="ql-...">text</p>
+  result = result.replace(
+    /<p[^>]*>\s*(\d+)\|\s*<\/p>\s*<p[^>]*>([\s\S]*?)<\/p>/gi,
+    (_m, num, content) =>
+      `<div class="cfc-pipe-row"><span class="cfc-num">${num}|</span><span class="cfc-pipe-text">${content}</span></div>`,
   );
-  transformed = transformed.replace(
-    /<p>\s*(\d+)\|\s+/gi,
-    '<p><span class="cfc-num">$1|</span> '
+
+  // Case 2: Marker at the start of a paragraph followed by text in the same paragraph.
+  // Handles: <p>2| text here</p>  OR  <p class="ql-...">2| text here</p>
+  result = result.replace(
+    /<p[^>]*>\s*(\d+)\|[ \t]+([\s\S]*?)<\/p>/gi,
+    (_m, num, content) =>
+      `<div class="cfc-pipe-row"><span class="cfc-num">${num}|</span><span class="cfc-pipe-text">${content}</span></div>`,
   );
-  return transformed;
+
+  return result;
 }
 
 export default function RichTextViewer({ html, text, items, className = "", invert = true }: RichTextViewerProps) {
@@ -34,7 +43,7 @@ export default function RichTextViewer({ html, text, items, className = "", inve
   if (sanitizedHtml) {
     return (
       <div
-        className={`rich-text-viewer prose prose-sm md:prose-base max-w-none break-normal whitespace-pre-wrap hyphens-none leading-relaxed ${
+        className={`rich-text-viewer prose prose-sm md:prose-base max-w-none break-normal whitespace-normal hyphens-none leading-relaxed ${
           invert
             ? "prose-invert text-white/90"
             : "text-[var(--ink)] prose-headings:text-[var(--ink)] prose-strong:text-[var(--ink)] prose-em:text-[var(--ink)]"
@@ -49,7 +58,7 @@ export default function RichTextViewer({ html, text, items, className = "", inve
       <ul
         className={`rich-text-viewer list-disc list-inside space-y-2 ${
           invert ? "text-white/90" : "text-[var(--ink)]"
-        } text-base md:text-lg leading-relaxed break-normal whitespace-pre-wrap hyphens-none ${className}`}
+        } text-base md:text-lg leading-relaxed break-normal whitespace-normal hyphens-none ${className}`}
       >
         {items.map((item, index) => (
           <li key={index}>{item}</li>
@@ -63,7 +72,7 @@ export default function RichTextViewer({ html, text, items, className = "", inve
       <div
         className={`rich-text-viewer space-y-3 ${
           invert ? "text-white/90" : "text-[var(--ink)]"
-        } text-base md:text-lg leading-relaxed break-normal whitespace-pre-wrap hyphens-none ${className}`}
+        } text-base md:text-lg leading-relaxed break-normal whitespace-normal hyphens-none ${className}`}
       >
         {text
           .split(/\n{2,}/)

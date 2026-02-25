@@ -87,7 +87,7 @@ h1, h2, h3, h4, h5, h6 {
 .slide-content-card .prose,
 .rich-text-viewer {
   word-break: normal;
-  overflow-wrap: normal;
+  overflow-wrap: break-word;
   hyphens: none;
 }
 
@@ -98,16 +98,30 @@ h1, h2, h3, h4, h5, h6 {
 
 .rich-text-viewer p,
 .rich-text-viewer li {
-  white-space: pre-wrap;
+  white-space: normal;
 }
 
 .cfc-num {
-  display: inline-block;
-  width: 2.25rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  color: rgba(11, 11, 15, 0.55);
+  font-weight: 700;
+  white-space: nowrap;
   text-align: right;
-  margin-right: 0.5rem;
+}
+
+/* 2-column grid row for "n|" pipe markers in rich text */
+.cfc-pipe-row {
+  display: grid;
+  grid-template-columns: 3ch 1fr;
+  gap: 0.15rem 0.6rem;
+  align-items: start;
+  margin: 0.35rem 0;
+}
+
+.cfc-pipe-text {
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
 }
 
 /* Render Quill font families in slide display */
