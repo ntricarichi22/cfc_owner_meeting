@@ -104,10 +104,11 @@ h1, h2, h3, h4, h5, h6 {
 /* Scoped hard-stop: no mid-word breaks in proposal slide rich text panels */
 .proposal-richtext,
 .proposal-richtext * {
-  word-break: normal !important;
+  white-space: pre-wrap !important;
   overflow-wrap: normal !important;
-  white-space: normal !important;
+  word-break: normal !important;
   hyphens: none !important;
+  max-width: 100% !important;
 }
 
 /* URLs and code may break anywhere to avoid overflow */
