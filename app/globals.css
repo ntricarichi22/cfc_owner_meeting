@@ -66,13 +66,34 @@ body {
 /* Slide content cards – PowerPoint-like text wrapping */
 .slide-content-card {
   word-break: normal;
-  overflow-wrap: break-word;
-  hyphens: auto;
+  overflow-wrap: normal;
+  hyphens: none;
 }
 
-.slide-content-card .prose {
+.slide-content-card .prose,
+.rich-text-viewer {
   word-break: normal;
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+
+.slide-content-card .prose a,
+.rich-text-viewer a {
+  word-break: break-word;
+}
+
+.rich-text-viewer p,
+.rich-text-viewer li {
+  white-space: pre-wrap;
+}
+
+.cfc-num {
+  display: inline-block;
+  width: 2.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: right;
+  margin-right: 0.5rem;
 }
 
 /* Render Quill font families in slide display */
