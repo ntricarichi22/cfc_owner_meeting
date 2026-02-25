@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import DOMPurify from "isomorphic-dompurify";
 import Nav from "@/components/Nav";
+import RichTextViewer from "@/components/RichTextViewer";
 import { useSession } from "@/components/TeamSelector";
 import VotingModal from "@/components/VotingModal";
 import { COMMISSIONER_TEAM_NAME } from "@/lib/constants";
@@ -597,14 +597,10 @@ export default function MeetingOwnerPage() {
                         aria-label="Proposal details"
                       >
                         {summaryText ? (
-                          isHtmlContent(summaryText) ? (
-                            <div
-                              className="prose prose-invert prose-sm max-w-none"
-                              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(summaryText) }}
-                            />
-                          ) : (
-                            <p className="whitespace-pre-wrap">{summaryText}</p>
-                          )
+                          <RichTextViewer
+                            html={isHtmlContent(summaryText) ? summaryText : null}
+                            text={!isHtmlContent(summaryText) ? summaryText : null}
+                          />
                         ) : (
                           <p className="text-white/30 italic">No details added yet.</p>
                         )}
@@ -629,16 +625,9 @@ export default function MeetingOwnerPage() {
                         aria-label="Proposal pros"
                       >
                         {rationaleData.prosHtml ? (
-                          <div
-                            className="prose prose-invert prose-sm max-w-none"
-                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(rationaleData.prosHtml) }}
-                          />
+                          <RichTextViewer html={rationaleData.prosHtml} />
                         ) : rationaleData.pros.length > 0 ? (
-                          <ul className="list-disc list-inside space-y-1">
-                            {rationaleData.pros.map((line, i) => (
-                              <li key={i}>{line}</li>
-                            ))}
-                          </ul>
+                          <RichTextViewer items={rationaleData.pros} />
                         ) : (
                           <p className="text-white/30 italic">Add pros...</p>
                         )}
@@ -660,16 +649,9 @@ export default function MeetingOwnerPage() {
                         aria-label="Proposal cons"
                       >
                         {rationaleData.consHtml ? (
-                          <div
-                            className="prose prose-invert prose-sm max-w-none"
-                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(rationaleData.consHtml) }}
-                          />
+                          <RichTextViewer html={rationaleData.consHtml} />
                         ) : rationaleData.cons.length > 0 ? (
-                          <ul className="list-disc list-inside space-y-1">
-                            {rationaleData.cons.map((line, i) => (
-                              <li key={i}>{line}</li>
-                            ))}
-                          </ul>
+                          <RichTextViewer items={rationaleData.cons} />
                         ) : (
                           <p className="text-white/30 italic">Add cons...</p>
                         )}
@@ -702,14 +684,10 @@ export default function MeetingOwnerPage() {
                   </header>
                   <div className="slide-content-card mt-4 flex-1 min-h-0 rounded-2xl border border-white/10 bg-white/[0.03] p-6 overflow-auto">
                     {summaryText ? (
-                      isHtmlContent(summaryText) ? (
-                        <div
-                          className="prose prose-invert prose-sm max-w-none"
-                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(summaryText) }}
-                        />
-                      ) : (
-                        <p className="text-white/90 whitespace-pre-wrap">{summaryText}</p>
-                      )
+                      <RichTextViewer
+                        html={isHtmlContent(summaryText) ? summaryText : null}
+                        text={!isHtmlContent(summaryText) ? summaryText : null}
+                      />
                     ) : (
                       <p className="text-white/60">This item is discussion-only. Voting is not required for this slide.</p>
                     )}
