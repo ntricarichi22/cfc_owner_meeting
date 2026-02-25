@@ -101,6 +101,24 @@ h1, h2, h3, h4, h5, h6 {
   white-space: pre-wrap;
 }
 
+/* Proposal slide rich-text safety net: wrap at spaces, never clip, never split normal words */
+.proposal-richtext,
+.proposal-richtext * {
+  white-space: pre-wrap !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  hyphens: none !important;
+  max-width: 100% !important;
+}
+
+/* Allow long URLs / code to break rather than overflow */
+.proposal-richtext a,
+.proposal-richtext code,
+.proposal-richtext pre {
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+
 .cfc-num {
   display: inline-block;
   width: 2.25rem;
