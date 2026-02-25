@@ -98,7 +98,7 @@ function ConstitutionChips({ sections }: { sections: ConstitutionSectionInfo[] }
     return (
       <>
         {sections.map((sec) => (
-          <Chip key={sec.id} className="text-sm px-3 py-1 cursor-pointer">
+          <Chip key={sec.id} className="text-sm px-3 py-1 cursor-pointer bg-[var(--card-surface)] text-[var(--ink)] shadow-[3px_3px_0_var(--shadow)]">
             <a
               href={constitutionChipHref(sec)}
               target="_blank"
@@ -113,7 +113,7 @@ function ConstitutionChips({ sections }: { sections: ConstitutionSectionInfo[] }
     );
   }
   return (
-    <Chip className="text-sm px-3 py-1 cursor-pointer">
+    <Chip className="text-sm px-3 py-1 cursor-pointer bg-[var(--card-surface)] text-[var(--ink)] shadow-[3px_3px_0_var(--shadow)]">
       <a
         href="/constitution"
         target="_blank"
@@ -546,99 +546,90 @@ export default function MeetingOwnerPage() {
         ) : (
           <section className="h-full flex flex-col gap-4 py-6">
               {proposal && (proposal.proposal_type || "proposal") !== "admin" ? (
-                <div className="flex flex-col h-full min-h-0 gap-4">
-                  <PopCard className="flex-shrink-0">
-                    <div className="flex flex-col gap-3">
-                      <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">
-                        Proposal #{currentSlide}: {proposal?.title || "Untitled Proposal"}
-                      </h1>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Chip className="text-sm px-3 py-1">Proposed by: {proposal?.proposed_by || "Commissioner"}</Chip>
-                        <Chip className="text-sm px-3 py-1">Effective Date: {proposal?.effective_date || "TBD"}</Chip>
+                <div className="h-full min-h-0">
+                  <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[3fr_2fr]">
+                    <PopCard className="flex flex-col min-h-0 bg-[var(--accent-blue)] text-white border-[var(--border)] shadow-[var(--shadow-style)]">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-2">
+                          <p className="text-xs uppercase tracking-[0.2em] text-white/75">Proposal</p>
+                          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight leading-tight">
+                            Proposal #{currentSlide}: {proposal?.title || "Untitled Proposal"}
+                          </h1>
+                        </div>
+                        {voteSessionStatus === "tallied" ? (
+                          <div className="flex items-center gap-2">
+                            {voteSessionPassed ? (
+                              <SuccessButton onClick={() => setShowVotingModal(true)} className="px-5 py-2 text-sm border-[var(--border)] shadow-[var(--shadow-style)]">APPROVED</SuccessButton>
+                            ) : (
+                              <DangerButton onClick={() => setShowVotingModal(true)} className="px-5 py-2 text-sm border-[var(--border)] shadow-[var(--shadow-style)]">REJECTED</DangerButton>
+                            )}
+                          </div>
+                        ) : isCommissioner ? (
+                          <div className="flex flex-col items-end gap-1">
+                            <PrimaryButton onClick={handleStartVoting} className="px-5 py-2 text-sm bg-white text-[var(--ink)] border-[var(--border)] shadow-[var(--shadow-style)]">
+                              Start Voting
+                            </PrimaryButton>
+                            {startVotingError && (
+                              <p className="text-xs text-white">{startVotingError}</p>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <Chip className="text-sm px-3 py-1 bg-[var(--card-surface)] text-[var(--ink)] shadow-[3px_3px_0_var(--shadow)]">Proposed by: {proposal?.proposed_by || "Commissioner"}</Chip>
+                        <Chip className="text-sm px-3 py-1 bg-[var(--card-surface)] text-[var(--ink)] shadow-[3px_3px_0_var(--shadow)]">Effective Date: {proposal?.effective_date || "TBD"}</Chip>
                         <ConstitutionChips sections={linkedSections} />
                       </div>
+
+                      <div className="mt-5 flex-1 min-h-0 overflow-hidden rounded-[12px] border-[var(--border-width)] border-white/30 bg-white/10 p-4 slide-content-card">
+                        <div className="text-sm uppercase tracking-[0.18em] text-white/70 mb-2">Details</div>
+                        <div className="flex-1 overflow-y-auto space-y-3 text-sm leading-relaxed">
+                          {summaryText ? (
+                            <RichTextViewer
+                              html={isHtmlContent(summaryText) ? summaryText : null}
+                              text={!isHtmlContent(summaryText) ? summaryText : null}
+                            />
+                          ) : (
+                            <p className="text-white/80 italic">No details added yet.</p>
+                          )}
+                        </div>
+                      </div>
+                    </PopCard>
+
+                    <div className="flex h-full min-h-0 flex-col gap-4">
+                      <PopCard className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-4" aria-label="Proposal pros">
+                        <div className="absolute inset-x-0 top-0 h-1 bg-[var(--accent-green)]" />
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-lg font-semibold text-[var(--ink)]">Pros</span>
+                        </div>
+                        <div className="flex-1 overflow-y-auto text-sm leading-relaxed text-[var(--ink)] slide-content-card">
+                          {rationaleData.prosHtml ? (
+                            <RichTextViewer html={rationaleData.prosHtml} invert={false} />
+                          ) : rationaleData.pros.length > 0 ? (
+                            <RichTextViewer items={rationaleData.pros} invert={false} />
+                          ) : (
+                            <p className="text-[rgba(11,11,15,0.7)] italic">Add pros...</p>
+                          )}
+                        </div>
+                      </PopCard>
+
+                      <PopCard className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-4" aria-label="Proposal cons">
+                        <div className="absolute inset-x-0 top-0 h-1 bg-[var(--accent-red)]" />
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-lg font-semibold text-[var(--ink)]">Cons</span>
+                        </div>
+                        <div className="flex-1 overflow-y-auto text-sm leading-relaxed text-[var(--ink)] slide-content-card">
+                          {rationaleData.consHtml ? (
+                            <RichTextViewer html={rationaleData.consHtml} invert={false} />
+                          ) : rationaleData.cons.length > 0 ? (
+                            <RichTextViewer items={rationaleData.cons} invert={false} />
+                          ) : (
+                            <p className="text-[rgba(11,11,15,0.7)] italic">Add cons...</p>
+                          )}
+                        </div>
+                      </PopCard>
                     </div>
-                    {voteSessionStatus === "tallied" ? (
-                      <div className="flex items-center gap-2">
-                        {voteSessionPassed ? (
-                          <SuccessButton onClick={() => setShowVotingModal(true)} className="px-5 py-2 text-sm">APPROVED</SuccessButton>
-                        ) : (
-                          <DangerButton onClick={() => setShowVotingModal(true)} className="px-5 py-2 text-sm">REJECTED</DangerButton>
-                        )}
-                      </div>
-                    ) : isCommissioner ? (
-                      <div className="flex flex-col items-end gap-1">
-                        <PrimaryButton onClick={handleStartVoting} className="px-5 py-2 text-sm">
-                          Start Voting
-                        </PrimaryButton>
-                        {startVotingError && (
-                          <p className="text-xs text-[var(--accent-red)]">{startVotingError}</p>
-                        )}
-                      </div>
-                    ) : null}
-                  </PopCard>
-
-                  <div className="flex gap-4 flex-1 min-h-0 flex-col md:flex-row">
-                    <PopCard className="flex-1 flex flex-col min-w-0" aria-label="Proposal details">
-                      <div className="flex items-center gap-2 mb-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                          <polyline points="14 2 14 8 20 8" />
-                          <line x1="16" y1="13" x2="8" y2="13" />
-                          <line x1="16" y1="17" x2="8" y2="17" />
-                          <polyline points="10 9 9 9 8 9" />
-                        </svg>
-                        <span className="text-xl font-semibold tracking-tight">Details</span>
-                      </div>
-                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed">
-                        {summaryText ? (
-                          <RichTextViewer
-                            html={isHtmlContent(summaryText) ? summaryText : null}
-                            text={!isHtmlContent(summaryText) ? summaryText : null}
-                          />
-                        ) : (
-                          <p className="text-[rgba(11,11,15,0.6)] italic">No details added yet.</p>
-                        )}
-                      </div>
-                    </PopCard>
-
-                    <PopCard className="flex-1 flex flex-col min-w-0" aria-label="Proposal pros">
-                      <div className="flex items-center gap-2 mb-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
-                          <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-                        </svg>
-                        <span className="text-xl font-semibold tracking-tight">Pros</span>
-                      </div>
-                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed">
-                        {rationaleData.prosHtml ? (
-                          <RichTextViewer html={rationaleData.prosHtml} />
-                        ) : rationaleData.pros.length > 0 ? (
-                          <RichTextViewer items={rationaleData.pros} />
-                        ) : (
-                          <p className="text-[rgba(11,11,15,0.6)] italic">Add pros...</p>
-                        )}
-                      </div>
-                    </PopCard>
-
-                    <PopCard className="flex-1 flex flex-col min-w-0" aria-label="Proposal cons">
-                      <div className="flex items-center gap-2 mb-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
-                          <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
-                        </svg>
-                        <span className="text-xl font-semibold tracking-tight">Cons</span>
-                      </div>
-                      <div className="flex-1 overflow-y-auto text-sm leading-relaxed">
-                        {rationaleData.consHtml ? (
-                          <RichTextViewer html={rationaleData.consHtml} />
-                        ) : rationaleData.cons.length > 0 ? (
-                          <RichTextViewer items={rationaleData.cons} />
-                        ) : (
-                          <p className="text-[rgba(11,11,15,0.6)] italic">Add cons...</p>
-                        )}
-                      </div>
-                    </PopCard>
                   </div>
                 </div>
               ) : (
