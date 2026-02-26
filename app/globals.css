@@ -176,6 +176,34 @@ h1, h2, h3, h4, h5, h6 {
   color: #111111;
 }
 
+/* Admin slide content – scoped table poster styling */
+.admin-slide-content {
+  color: #111111;
+}
+
+.admin-slide-content table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-slide-content th,
+.admin-slide-content td {
+  border: 2px solid #111111;
+  padding: 12px 14px;
+  vertical-align: top;
+}
+
+.admin-slide-content th {
+  background: #F6F0E6;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.admin-slide-content tr:nth-child(even) td {
+  background: rgba(0, 0, 0, 0.03);
+}
+
 /* Render Quill font sizes in slide display */
 .ql-size-10px { font-size: 10px; }
 .ql-size-12px { font-size: 12px; }
