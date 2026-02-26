@@ -44,20 +44,27 @@ export async function POST(req: NextRequest) {
     .select("id, status, locked")
     .eq("id", meetingId)
     .maybeSingle();
-  if (meetingRes.error) return jsonError(500, "Supabase error", meetingRes.error.message, meetingRes.error.code);
+  if (meetingRes.error) {
+    console.error("[end] meetings lookup failed:", meetingRes.error.code, meetingRes.error.message);
+    return jsonError(500, "Supabase error", meetingRes.error.message, meetingRes.error.code);
+  }
   if (!meetingRes.data) return jsonError(404, "Meeting not found");
   if (meetingRes.data.locked) return jsonError(409, "Meeting is already locked");
 
   const now = new Date().toISOString();
 
-  // Lock and finalize the meeting (finalized_at requires end_meeting_migration.sql to be applied)
+  // Lock and finalize the meeting — meetings.finalized_at does not exist in the MVP schema,
+  // so only write fields that are guaranteed to be present.
   const updateRes = await sb
     .from("meetings")
-    .update({ locked: true, status: "finalized", finalized_at: now })
+    .update({ locked: true, status: "finalized" })
     .eq("id", meetingId);
-  if (updateRes.error) return jsonError(500, "Supabase error", updateRes.error.message, updateRes.error.code);
+  if (updateRes.error) {
+    console.error("[end] meetings update failed:", updateRes.error.code, updateRes.error.message);
+    return jsonError(500, "Supabase error", updateRes.error.message, updateRes.error.code);
+  }
 
-  // Store transcript in meeting_minutes
+  // Store transcript in meeting_minutes — finalized_at & finalized_by_team exist here (pr4_voting_minutes.sql)
   const minutesMarkdown = `${TRANSCRIPT_MARKDOWN_HEADING}\n\n${transcriptText}`;
   const minutesRes = await sb
     .from("meeting_minutes")
@@ -70,7 +77,10 @@ export async function POST(req: NextRequest) {
       },
       { onConflict: "meeting_id" }
     );
-  if (minutesRes.error) return jsonError(500, "Supabase error", minutesRes.error.message, minutesRes.error.code);
+  if (minutesRes.error) {
+    console.error("[end] meeting_minutes upsert failed:", minutesRes.error.code, minutesRes.error.message);
+    return jsonError(500, "Supabase error", minutesRes.error.message, minutesRes.error.code);
+  }
 
   // Audit event
   await insertAuditEvent(meetingId, null, "meeting_ended", {
