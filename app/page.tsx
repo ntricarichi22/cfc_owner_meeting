@@ -19,6 +19,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [claimedTeamIds, setClaimedTeamIds] = useState<Set<string>>(new Set());
+  const [entering, setEntering] = useState(false);
 
   useEffect(() => {
     fetch("/api/teams")
@@ -59,28 +60,32 @@ export default function Home() {
   const handleEnterMeeting = async () => {
     try {
       setError("");
+      setEntering(true);
       if (!session && !selectedTeamId) {
         setError("Team not found");
+        setEntering(false);
         return;
       }
       if (!session) {
         const team = teams.find((t) => t.teamId === selectedTeamId);
         if (!team) {
           setError("Team not found");
+          setEntering(false);
           return;
         }
         await selectTeam(team.teamId, team.teamName);
       }
-      router.push("/meeting");
+      router.replace("/meeting");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to select team");
+      setEntering(false);
     }
   };
 
-  if (loading) {
+  if (loading || entering) {
     return (
       <main className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)] flex items-center justify-center">
-        <p className="text-[rgba(11,11,15,0.6)]">Loading...</p>
+        <p className="text-[rgba(11,11,15,0.6)]">{entering ? "Entering meeting…" : "Loading..."}</p>
       </main>
     );
   }
