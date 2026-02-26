@@ -1,6 +1,6 @@
 # UI Mockups (Source of Truth)
 
-This folder contains the **authoritative visual specs** for the CFC Owners Meeting app UI.  
+This folder contains the **authoritative visual specs** for the CFC Owners Meeting app UI.
 When implementing or restyling UI, **match the PNGs in this folder first**. If code and mockups conflict, **the mockups win**.
 
 ---
@@ -10,16 +10,19 @@ When implementing or restyling UI, **match the PNGs in this folder first**. If c
 - `proposal-slide-with-voting.png`  
   Final target for the **Proposal Slide Template** (includes the gold “START VOTING” button and the overall layout / typography / shadows).
 
+- `admin-slide-option-b.png`  
+  Final target for the **Admin Slide Template (Option B)** — same header band style as proposal slides, with one main content card framed by a blue mat.
+
 ---
 
 ## Non-Negotiables (Guardrails)
 
-When implementing this design:
+When implementing these designs:
 
 - **Do not** change Supabase tables/columns, SQL, RLS policies, or API payload shapes.
 - **Do not** change routes, navigation, meeting flow, or deep link behavior.
 - **Do not** refactor meeting/voting/session hooks except to move styling wrappers.
-- This work is **layout + styling only** for the proposal slide template (and related UI components it directly uses).
+- UI work should be **layout + styling only** for slide templates and their presentational components.
 
 ---
 
@@ -27,7 +30,7 @@ When implementing this design:
 
 - Paper background: `#F6F0E6`
 - Ink (borders + primary text): `#111111`
-- Electric Blue (Details panel): `#22A3FF`
+- Electric Blue: `#22A3FF`
 - Accent Red (chips): `#FF3B30`
 - Voting Gold (Start Voting button): `#BF8F00`
 
@@ -39,63 +42,16 @@ Voting results (status chip + badges):
 
 ## Typography
 
-Match the mockup style: bold, condensed, “poster” feel for titles and headers.
+Match the mockups: bold, condensed, “poster” feel for titles and headers.
 
-- Proposal Title: large, all caps, heavy weight, ink color.
-- Section headers (“DETAILS”, “PROS”, “CONS”): all caps, bold, ink color.
+- Slide Title: large, all caps, heavy weight, ink color.
+- Section headers (“DETAILS”, “PROS”, “CONS”, “RECENT UPDATES”, etc.): all caps, bold, ink.
 - Body text:
-  - DETAILS panel: white text on blue background
-  - PROS/CONS cards: ink text on paper background
+  - Proposal DETAILS panel: white text on blue background.
+  - Proposal PROS/CONS: ink text on paper.
+  - Admin slide main content: ink text on paper.
 
-If a specific font is not available, choose the closest condensed display font already in the project, and keep weights/sizes consistent with the mock.
-
----
-
-## Proposal Slide Layout (Target)
-
-The proposal slide template should visually match `proposal-slide-with-voting.png`.
-
-### Header band (top strip)
-- Full width, paper background, ink border.
-- Left side: Proposal title (e.g., “PROPOSAL #1: AMEND THE CLUB YEAR”).
-- Under title: chips row:
-  - “PROPOSED BY: <TEAM>”
-  - “EFFECTIVE DATE: <YEAR> CLUB YEAR”
-  - Constitution deep link chip(s), e.g. “ARTICLE 4, SECTION 1”
-- Right side: large gold **START VOTING** button.
-
-### Content area (below header)
-Two-column layout:
-
-#### Left: DETAILS panel (Electric Blue)
-- Takes ~60% width.
-- Full height of the content area.
-- Blue fill: `#22A3FF`
-- White text.
-- “DETAILS” label with document icon near the top-left (as shown).
-- Body supports rich text (bullets, underline, etc.) and should be readable and spaced.
-
-#### Right: PROS + CONS stacked cards (~40% width)
-- Two cards stacked vertically (Pros on top, Cons on bottom).
-- Paper fill.
-- Ink border.
-- Red accent for the header label and icon:
-  - Pros: thumbs-up icon + “PROS”
-  - Cons: thumbs-down icon + “CONS”
-- Body text ink color.
-
----
-
-## “1|” Formatting Rules (Pros/Cons)
-
-Pros and Cons lists use the `1|` pattern.
-
-- The `1|` token must stay **on the same line** as the text.
-- Render as a two-column row:
-  - Left fixed column: the marker (e.g., `1|`)
-  - Right flexible column: the content text
-- Ensure markers align vertically across list items.
-- Avoid awkward wrapping where single words break onto their own lines.
+If a specific font is not available, choose the closest condensed display font already in the project and keep sizing/weights consistent.
 
 ---
 
@@ -104,65 +60,79 @@ Pros and Cons lists use the `1|` pattern.
 This UI uses “paper + ink” styling with bold borders and **hard offset shadows**.
 
 ### Ink border
-- Use a thick border like `4px solid #111111` (or the closest match used in the project).
+- Use a thick border like `4px solid #111111` (or closest match already in the project).
 
 ### Hard shadow (no blur)
-Use an offset shadow that looks like printed poster depth:
-
-- Default: `8px 8px 0 #111111`
+- Default shadow: `8px 8px 0 #111111`
 - No blur. No transparency.
-- Shadow should appear primarily on the **bottom and right** (not as an outline/glow).
-
-### Pros/Cons cards
-- Keep the ink shadow.
-- Do **not** place the red accent as a glow/outline around the whole card.
-- If you want red emphasis, use it for:
-  - header text/icon color
-  - optional thin top border accent
-But the main shadow remains a hard “ink” shadow like the mock.
+- Shadow should appear primarily on the **bottom and right** (not as a glow/outline).
 
 ---
 
-## Voting Button / Status Chip
+## Proposal Slide Template (Target)
 
-### Start Voting (before tally)
-- Placement: right side of header band.
-- Fill: gold `#BF8F00`
-- Text: white, all caps (“START VOTING”)
-- Border: thick ink border
-- Shadow: hard offset bottom-right (ink)
-- Corner radius: rounded rectangle, matching the PNG.
+Match `proposal-slide-with-voting.png`.
 
-### After tally: Replace button with status chip
-After votes are tallied:
-- Replace the Start Voting button with a same-size chip:
+### Header band (top strip)
+- Full width, paper background, ink border + hard shadow.
+- Left: `PROPOSAL #X: {TITLE}`
+- Under title: chips row:
+  - `PROPOSED BY: <TEAM>`
+  - `EFFECTIVE DATE: <YEAR> CLUB YEAR`
+  - Constitution deep link chip(s), e.g. `ARTICLE 4, SECTION 1`
+- Right: large gold **START VOTING** button.
+
+### Content area (below header)
+Two-column layout:
+- Left 60%: blue DETAILS panel (`#22A3FF`) with white text and bullets.
+- Right 40%: PROS and CONS stacked cards (paper background, ink text).
+
+### “1|” formatting rules (Pros/Cons)
+- `1|` must stay on the same line as its text.
+- Render as a 2-column row (fixed marker column + flexible text column).
+- Avoid weird mid-word wrapping.
+- Normalize rich text HTML so NBSP (`&nbsp;` / `\u00A0`) does not break wrapping.
+
+### Voting button / status chip
+- Start Voting button:
+  - Fill: `#BF8F00`
+  - Text: white, all caps
+  - Ink border + hard shadow
+- After tally, replace with same-size status chip:
   - Approved: green fill
   - Rejected: red fill
-- Chip is clickable to reopen the results modal (roll call + outcome).
-- Must NOT auto-pop open when revisiting the slide.
+  - Click reopens results modal
+  - Must not auto-pop on slide revisit
 
 ---
 
-## Implementation Notes
+## Admin Slide Template (Option B Target)
 
-- Match spacing/padding to the mock:
-  - generous internal padding
-  - clear separation between header and content area
-  - consistent gutters between columns
-- Keep current functionality intact:
-  - proposal data binding
-  - deep links
-  - voting workflow
-  - modals
-  - slide navigation
+Match `admin-slide-option-b.png`.
+
+### Header band (same system as proposal slides)
+- Same title/chips styling as proposal slides (paper + ink).
+- No voting button on admin slides.
+
+### Main content area (one card)
+- One large content card on paper background with ink border + hard shadow.
+- The content card is framed by a **blue “mat”/frame**:
+  - Blue fill `#22A3FF` behind/around the content card (as shown in mock).
+  - The inner card remains paper for readability.
+
+### Content inside the admin card
+- Supports rich text and pasted tables (Excel/Sheets).
+- Tables should remain readable:
+  - borders visible
+  - header row distinct
+  - horizontal scroll allowed inside the card if needed
+- Typography should match the mock (clear headings, comfortable spacing).
 
 ---
 
 ## Definition of Done
 
-- Proposal slide looks visually indistinguishable from `proposal-slide-with-voting.png` at normal desktop viewport sizes.
-- Title is legible (ink), not washed out.
-- DETAILS panel is blue with white text and readable spacing.
-- Pros/Cons markers (`1|`) align correctly and stay on the same line as their text.
-- Shadows are hard offset (bottom-right), not glowing outlines.
-- Voting button matches gold style; after tally, button becomes a clickable status chip.
+- Proposal slides visually match `proposal-slide-with-voting.png`.
+- Admin slides visually match `admin-slide-option-b.png`.
+- No schema/API changes.
+- All existing meeting functionality remains intact.
