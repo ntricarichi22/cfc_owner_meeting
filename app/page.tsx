@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/components/TeamSelector";
 
@@ -17,6 +17,9 @@ export default function Home() {
   const [error, setError] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [claimedTeamIds, setClaimedTeamIds] = useState<Set<string>>(new Set());
+  const [entering, setEntering] = useState(false);
+  // Tracks whether the session API succeeded; guards the safety-timeout navigation.
+  const sessionReadyRef = useRef(false);
 
   useEffect(() => {
     fetch("/api/teams")
@@ -55,25 +58,44 @@ export default function Home() {
   }, [session]);
 
   const handleEnterMeeting = async () => {
+    sessionReadyRef.current = false;
     try {
       setError("");
+      setEntering(true);
       if (!session && !selectedTeamId) {
+        setEntering(false);
         setError("Team not found");
         return;
       }
       if (!session) {
         const team = teams.find((t) => t.teamId === selectedTeamId);
         if (!team) {
+          setEntering(false);
           setError("Team not found");
           return;
         }
         await selectTeam(team.teamId, team.teamName);
       }
+      // Session is confirmed ready — safe to navigate.
+      sessionReadyRef.current = true;
       router.push("/meeting");
     } catch (e: unknown) {
+      setEntering(false);
       setError(e instanceof Error ? e.message : "Failed to select team");
     }
   };
+
+  // Safety timeout: if navigation somehow stalls after a successful session response,
+  // force routing to /meeting. Only fires when sessionReadyRef is true (session API succeeded).
+  useEffect(() => {
+    if (!entering) return;
+    const timeout = setTimeout(() => {
+      if (sessionReadyRef.current) {
+        router.replace("/meeting");
+      }
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, [entering, router]);
 
   if (loading) {
     return (
@@ -180,10 +202,10 @@ export default function Home() {
           {/* ENTER MEETING button */}
           <button
             onClick={handleEnterMeeting}
-            disabled={!session && !selectedTeamId}
+            disabled={(!session && !selectedTeamId) || entering}
             className="w-full bg-[#BF8F00] border-[3px] border-[#111111] py-4 font-black uppercase tracking-[0.12em] text-lg text-[#111111] shadow-[5px_5px_0_#111111] transition-transform hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[7px_7px_0_#111111] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[3px_3px_0_#111111] disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111]"
           >
-            Enter Meeting →
+            {entering ? "Entering meeting…" : "Enter Meeting →"}
           </button>
         </div>
       </div>
