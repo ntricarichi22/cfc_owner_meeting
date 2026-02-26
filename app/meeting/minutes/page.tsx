@@ -1,97 +1,303 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
+
+/* ---------- Types ---------- */
+
+interface SlideVote {
+  team_name: string;
+  vote: "yes" | "no";
+}
+
+interface SlideVoteSession {
+  yes_count: number;
+  no_count: number;
+  total_count: number;
+  passed: boolean | null;
+  status: string;
+}
+
+interface SlideProposal {
+  id: string;
+  title: string;
+  status: string;
+  summary: string | null;
+}
+
+interface Slide {
+  id: string;
+  order_index: number;
+  title: string;
+  category: string;
+  proposal: SlideProposal | null;
+  voteSession: SlideVoteSession | null;
+  votes: SlideVote[];
+}
+
+interface MeetingInfo {
+  id: string;
+  title: string;
+  year: number;
+  status: string;
+  ended_at: string | null;
+  finalized_at: string | null;
+}
+
+/* ---------- Helpers ---------- */
+
+type SlideBadge = "approved" | "rejected" | "tabled" | "admin" | null;
+
+function getSlideBadge(slide: Slide): SlideBadge {
+  if (slide.proposal) {
+    if (slide.proposal.status === "passed") return "approved";
+    if (slide.proposal.status === "failed") return "rejected";
+    if (slide.proposal.status === "tabled") return "tabled";
+  }
+  if (slide.category === "admin") return "admin";
+  return null;
+}
+
+function parseSlideNotes(checklist: string): Record<string, string> {
+  try {
+    const parsed = JSON.parse(checklist);
+    if (parsed && typeof parsed === "object" && parsed.slide_notes) {
+      return parsed.slide_notes as Record<string, string>;
+    }
+  } catch {
+    // Legacy plain-text checklist – ignore
+  }
+  return {};
+}
+
+function formatEndTime(ended_at: string): string {
+  const d = new Date(ended_at);
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+function formatMeetingDate(ended_at: string | null, year: number): string {
+  if (!ended_at) return `${year}`;
+  const d = new Date(ended_at);
+  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+/* ---------- Sub-components ---------- */
+
+function SlideBadgeChip({ type, selected = false }: { type: SlideBadge; selected?: boolean }) {
+  if (!type) return null;
+  if (type === "admin") {
+    return (
+      <span
+        className={`inline-block px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase border rounded ${
+          selected ? "border-white/50 text-white/70" : "border-[#111827] text-[#0B0B0F]"
+        }`}
+      >
+        ADMIN
+      </span>
+    );
+  }
+  const styles: Record<string, string> = {
+    approved: "bg-[#16A34A] text-white border border-[#111827]",
+    rejected: "bg-[#DC2626] text-white border border-[#111827]",
+    tabled: "bg-[#D97706] text-white border border-[#111827]",
+  };
+  const labels: Record<string, string> = {
+    approved: "APPROVED",
+    rejected: "REJECTED",
+    tabled: "TABLED",
+  };
+  return (
+    <span className={`inline-block px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase rounded ${styles[type]}`}>
+      {labels[type]}
+    </span>
+  );
+}
+
+function VoteChip({
+  label,
+  count,
+  teams,
+  variant,
+}: {
+  label: string;
+  count: number;
+  teams: string[];
+  variant: "for" | "against";
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        className={`flex items-center gap-2 px-5 py-2 text-white font-bold text-sm border-2 border-[#111827] shadow-[3px_3px_0_#000] rounded transition-transform hover:-translate-y-0.5 ${
+          variant === "for" ? "bg-[#DC2626]" : "bg-[#16A34A]"
+        }`}
+      >
+        {label} <span className="text-lg font-black">{count}</span>
+      </button>
+      {open && teams.length > 0 && (
+        <div className="absolute top-full left-0 mt-1.5 z-20 bg-[#0B0B0F] text-white text-xs border-2 border-[#111827] rounded shadow-[4px_4px_0_#000] p-2 min-w-[160px]">
+          <div className="font-bold text-[10px] uppercase tracking-wider text-white/60 mb-1.5">
+            {variant === "for" ? "Voted For" : "Voted Against"}
+          </div>
+          {teams.map((t) => (
+            <div key={t} className="py-0.5">
+              {t}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TranscriptModal({
+  transcript,
+  slideTitle,
+  onClose,
+}: {
+  transcript: string;
+  slideTitle: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-[rgba(11,11,15,0.6)] flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl max-h-[80vh] flex flex-col rounded-2xl border-4 border-[#111827] bg-[#F6F1E7] shadow-[6px_6px_0_#000]">
+        <div className="flex items-center justify-between px-6 py-4 border-b-4 border-[#111827] shrink-0">
+          <div>
+            <div className="text-xs font-bold tracking-[0.15em] uppercase text-[#0B0B0F]/60">
+              Transcript Excerpt
+            </div>
+            <div className="font-bold text-lg text-[#0B0B0F]">{slideTitle}</div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-[#0B0B0F]/50 hover:text-[#0B0B0F] transition-colors"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-6">
+          <pre className="whitespace-pre-wrap text-sm font-mono text-[#0B0B0F] leading-relaxed">
+            {transcript || "No transcript available."}
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Main Page ---------- */
 
 export default function MeetingMinutesPage() {
   const { session, loading, isCommissioner, logout } = useSession();
   const searchParams = useSearchParams();
+
   const [meetingId, setMeetingId] = useState<string | null>(null);
-  const [minutes, setMinutes] = useState("");
-  const [checklist, setChecklist] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-  const [meetingStatus, setMeetingStatus] = useState<string | null>(null);
+  const [meeting, setMeeting] = useState<MeetingInfo | null>(null);
+  const [slides, setSlides] = useState<Slide[]>([]);
+  const [selectedSlide, setSelectedSlide] = useState<Slide | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [transcript, setTranscript] = useState<string>("");
+  const [showTranscript, setShowTranscript] = useState(false);
+  const [noteSaved, setNoteSaved] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
+  const notesRef = useRef<Record<string, string>>({});
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep ref in sync with state for closures
   useEffect(() => {
-    if (!session || !isCommissioner) return;
+    notesRef.current = notes;
+  }, [notes]);
 
-    const paramMeetingId = searchParams.get("meetingId");
+  // Load meeting + slides + minutes data
+  useEffect(() => {
+    if (!session) return;
 
-    const loadMinutes = async (id: string) => {
-      const res = await fetch(`/api/meetings/${id}/minutes`);
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        const detail = [body?.error, body?.details, body?.code].filter(Boolean).join(" | ");
-        setMessage(`Unable to load minutes${detail ? `: ${detail}` : ""}`);
-        return;
-      }
-      const data = await res.json();
+    const loadAll = async (id: string) => {
       setMeetingId(id);
-      setMinutes(data?.minutes_markdown || "");
-      setChecklist(data?.checklist_markdown || "");
-    };
 
-    const loadMeetingStatus = async (id: string) => {
-      const res = await fetch(`/api/meetings/${id}`).catch(() => null);
-      if (res?.ok) {
-        const data = await res.json().catch(() => null);
-        if (data?.status) setMeetingStatus(data.status);
-      } else {
-        console.warn("[minutes] Could not load meeting status for", id);
+      const [meetingRes, slidesRes, minutesRes] = await Promise.all([
+        fetch(`/api/meetings/${id}`),
+        fetch(`/api/meetings/${id}/slides`),
+        fetch(`/api/meetings/${id}/minutes`),
+      ]);
+
+      if (meetingRes.ok) {
+        const m = await meetingRes.json();
+        setMeeting(m);
+      }
+
+      if (slidesRes.ok) {
+        const s = await slidesRes.json();
+        const slideList: Slide[] = s.slides || [];
+        setSlides(slideList);
+        if (slideList.length > 0) setSelectedSlide(slideList[0]);
+      }
+
+      if (minutesRes.ok) {
+        const m = await minutesRes.json();
+        const parsed = parseSlideNotes(m?.checklist_markdown || "");
+        setNotes(parsed);
+        notesRef.current = parsed;
+        setTranscript(m?.minutes_markdown || "");
       }
     };
 
-    if (paramMeetingId) {
-      loadMinutes(paramMeetingId).catch(() => setMessage("Unable to load minutes"));
-      loadMeetingStatus(paramMeetingId).catch(() => {});
+    const paramId = searchParams.get("meetingId");
+    if (paramId) {
+      loadAll(paramId).catch(() => setMessage("Failed to load minutes data"));
     } else {
       fetch("/api/meetings/current")
-        .then((res) => res.json())
-        .then((meeting) => {
-          if (!meeting?.id) return;
-          setMeetingStatus(meeting.status ?? null);
-          return loadMinutes(meeting.id);
+        .then((r) => r.json())
+        .then((m) => {
+          if (m?.id) return loadAll(m.id);
         })
-        .catch(() => setMessage("Unable to load minutes"));
+        .catch(() => setMessage("Failed to load minutes data"));
     }
-  }, [session, isCommissioner, searchParams]);
+  }, [session, searchParams]);
 
-  if (loading) return <div className="min-h-screen bg-black" />;
-  if (!session) return <div className="min-h-screen bg-black text-white p-6">Not logged in.</div>;
-  if (!isCommissioner) return <div className="min-h-screen bg-black text-white p-6">Commissioner only.</div>;
+  // Persist notes to server
+  const saveNotes = useCallback(
+    async (updatedNotes: Record<string, string>) => {
+      if (!meetingId) return;
+      const res = await fetch(`/api/meetings/${meetingId}/minutes`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          checklist_markdown: JSON.stringify({ slide_notes: updatedNotes }),
+        }),
+      });
+      if (res.ok) {
+        setNoteSaved(true);
+        setTimeout(() => setNoteSaved(false), 2000);
+      }
+    },
+    [meetingId],
+  );
 
-  const generate = async () => {
-    if (!meetingId) return;
-    const res = await fetch(`/api/meetings/${meetingId}/minutes/generate`, { method: "POST" });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      const detail = [data?.error, data?.details, data?.code].filter(Boolean).join(" | ");
-      setMessage(detail || "Generate failed");
-      return;
-    }
-    setMinutes(data?.minutes_markdown || "");
-    setChecklist(data?.checklist_markdown || "");
-    setMessage("Minutes generated");
+  const handleNoteChange = (slideId: string, value: string) => {
+    const updated = { ...notesRef.current, [slideId]: value };
+    notesRef.current = updated;
+    setNotes(updated);
+    setNoteSaved(false);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => saveNotes(updated), 1500);
   };
 
-  const saveChecklist = async () => {
-    if (!meetingId) return;
-    const res = await fetch(`/api/meetings/${meetingId}/minutes`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ checklist_markdown: checklist }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      const detail = [data?.error, data?.details, data?.code].filter(Boolean).join(" | ");
-      setMessage(detail || "Save failed");
-      return;
-    }
-    setMessage("Checklist saved");
+  const handleNoteBlur = () => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveNotes(notesRef.current);
   };
 
   const finalizeMinutes = async () => {
@@ -106,74 +312,299 @@ export default function MeetingMinutesPage() {
         setMessage(detail || "Finalize failed");
         return;
       }
-      setMeetingStatus("finalized");
-      setMessage("Meeting finalized.");
+      setMeeting((prev) => (prev ? { ...prev, status: "finalized" } : prev));
+      setMessage("Meeting finalized and moved to history.");
     } finally {
       setFinalizing(false);
     }
   };
 
-  const downloadMarkdown = () => {
-    const blob = new Blob([`${minutes}\n\n## Checklist\n${checklist}`], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "meeting-minutes.md";
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+  if (loading) return <div className="min-h-screen bg-[var(--paper-bg)]" />;
+  if (!session)
+    return (
+      <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)] p-8">Not logged in.</div>
+    );
 
-  const isEnded = meetingStatus === "ended";
-  const isFinalized = meetingStatus === "finalized";
+  const isFinalized = meeting?.status === "finalized";
+  const selectedBadge = selectedSlide ? getSlideBadge(selectedSlide) : null;
+  const yesTeams = selectedSlide?.votes.filter((v) => v.vote === "yes").map((v) => v.team_name) ?? [];
+  const noTeams = selectedSlide?.votes.filter((v) => v.vote === "no").map((v) => v.team_name) ?? [];
+  const hasSummary = !!(selectedSlide?.proposal?.summary?.trim());
+  const summaryLines = hasSummary
+    ? (selectedSlide?.proposal?.summary ?? "")
+        .split("\n")
+        .map((l) => l.replace(/^[-•*]\s*/, "").trim())
+        .filter(Boolean)
+    : [];
+  const selectedNotes = selectedSlide ? (notes[selectedSlide.id] ?? "") : "";
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="h-screen flex flex-col bg-[var(--paper-bg)] text-[var(--ink)] overflow-hidden">
       <Nav teamName={session.team_name} isCommissioner={isCommissioner} onLogout={logout} />
-      <main className="max-w-5xl mx-auto p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Meeting Minutes</h1>
-          {isEnded && (
-            <span className="px-2 py-0.5 text-xs font-bold uppercase tracking-wide bg-yellow-500 text-black rounded">
-              Ended – Pending Review
-            </span>
-          )}
-          {isFinalized && (
-            <span className="px-2 py-0.5 text-xs font-bold uppercase tracking-wide bg-green-600 text-white rounded">
-              Finalized
-            </span>
-          )}
+
+      {/* Page content */}
+      <div className="flex-1 flex flex-col min-h-0 p-4 gap-3">
+        {/* Page label */}
+        <div className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--ink)]/50 px-1 shrink-0">
+          MINUTES REVIEW
         </div>
-        {isEnded && (
-          <p className="text-sm text-yellow-300">
-            Meeting ended. Review the transcript below, then click &quot;Generate minutes&quot; to produce formatted meeting minutes.
-          </p>
-        )}
-        {message && <p className="text-sm text-blue-300">{message}</p>}
-        {isFinalized && (
-          <p className="text-sm text-green-300">
-            This meeting is finalized and will appear in{" "}
-            <Link href="/history" className="underline hover:text-green-100">Meeting History</Link>.
-          </p>
-        )}
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={generate} className="px-4 py-2 rounded bg-blue-700 hover:bg-blue-600 text-sm">Generate minutes</button>
-          <button onClick={saveChecklist} className="px-4 py-2 rounded bg-green-700 hover:bg-green-600 text-sm">Save checklist</button>
-          <button onClick={downloadMarkdown} className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-sm">Download .md</button>
-          {!isFinalized && (
-            <button
-              onClick={finalizeMinutes}
-              disabled={finalizing || !meetingId}
-              className="px-4 py-2 rounded bg-purple-700 hover:bg-purple-600 text-sm disabled:opacity-50"
-            >
-              {finalizing ? "Finalizing…" : "Finalize Minutes"}
-            </button>
-          )}
+
+        {/* Header card */}
+        <div className="border-2 border-[var(--border)] bg-[var(--card-surface)] shadow-[6px_6px_0_#000] rounded-2xl px-6 py-4 flex items-start justify-between gap-4 shrink-0">
+          <div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-3xl font-black uppercase tracking-tight leading-none">
+                {meeting?.title ?? "Loading…"}
+              </h1>
+              {!isFinalized ? (
+                <span className="bg-[#0B0B0F] text-[#F6F1E7] text-xs font-bold tracking-[0.12em] uppercase px-3 py-1 rounded">
+                  DRAFT MINUTES
+                </span>
+              ) : (
+                <span className="bg-[#16A34A] text-white text-xs font-bold tracking-[0.12em] uppercase px-3 py-1 rounded border border-[#111827]">
+                  FINALIZED
+                </span>
+              )}
+            </div>
+            <div className="text-sm text-[var(--ink)]/65 mt-1.5 flex items-center gap-2">
+              <span>{meeting ? formatMeetingDate(meeting.ended_at, meeting.year) : "—"}</span>
+              {meeting?.ended_at && (
+                <>
+                  <span className="text-[var(--ink)]/30">•</span>
+                  <span>Meeting Ended {formatEndTime(meeting.ended_at)}</span>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 shrink-0 mt-1">
+            {message && (
+              <span className={`text-xs font-semibold ${message.includes("finalized") ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
+                {message}
+              </span>
+            )}
+            {isCommissioner && !isFinalized && (
+              <button
+                onClick={finalizeMinutes}
+                disabled={finalizing || !meetingId}
+                className="px-5 py-2.5 font-black uppercase tracking-wide text-sm text-[#0B0B0F] bg-[#F5C542] border-2 border-[#111827] rounded shadow-[4px_4px_0_#000] hover:-translate-y-0.5 hover:shadow-[5px_5px_0_#000] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {finalizing ? "Finalizing…" : "Finalize Minutes"}
+              </button>
+            )}
+          </div>
         </div>
-        <div className="grid md:grid-cols-2 gap-4">
-          <textarea value={minutes} readOnly className="min-h-[420px] bg-gray-900 border border-gray-800 rounded p-3 text-sm" />
-          <textarea value={checklist} onChange={(e) => setChecklist(e.target.value)} className="min-h-[420px] bg-gray-900 border border-gray-800 rounded p-3 text-sm" />
+
+        {/* Two-column layout */}
+        <div className="flex gap-3 flex-1 min-h-0">
+          {/* Left sidebar */}
+          <div className="w-72 shrink-0 border-2 border-[var(--border)] bg-[var(--card-surface)] shadow-[6px_6px_0_#000] rounded-2xl flex flex-col overflow-hidden">
+            <div className="px-4 py-3 border-b-2 border-[var(--border)] shrink-0">
+              <div className="font-black text-sm uppercase tracking-wide">MINUTES REVIEW</div>
+              <div className="text-xs text-[var(--ink)]/55 mt-0.5">
+                {meeting ? formatMeetingDate(meeting.ended_at, meeting.year) : "—"}
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {slides.length === 0 && (
+                <p className="px-4 py-6 text-sm text-[var(--ink)]/40 italic">No slides found.</p>
+              )}
+              {slides.map((slide) => {
+                const badge = getSlideBadge(slide);
+                const isSelected = selectedSlide?.id === slide.id;
+                return (
+                  <button
+                    key={slide.id}
+                    onClick={() => setSelectedSlide(slide)}
+                    className={`w-full text-left px-4 py-3 border-b border-[var(--border)]/20 flex items-start justify-between gap-2 transition-colors ${
+                      isSelected
+                        ? "bg-[#1D4ED8] text-white"
+                        : "hover:bg-[var(--paper-bg)] text-[var(--ink)]"
+                    }`}
+                  >
+                    <span className="text-sm leading-snug">
+                      {slide.order_index}. {slide.title}
+                    </span>
+                    <span className="shrink-0 mt-0.5">
+                      <SlideBadgeChip type={badge} selected={isSelected} />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right pane */}
+          <div className="flex-1 border-2 border-[var(--border)] bg-[var(--card-surface)] shadow-[6px_6px_0_#000] rounded-2xl overflow-y-auto p-6 min-w-0">
+            {!selectedSlide && (
+              <div className="flex items-center justify-center h-full text-[var(--ink)]/35">
+                <p className="text-sm italic">Select a slide to view details</p>
+              </div>
+            )}
+
+            {selectedSlide && (
+              <div className="space-y-4">
+                {/* Slide title + status badge */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className="text-2xl font-black uppercase tracking-tight leading-tight">
+                    {selectedSlide.order_index}. {selectedSlide.title}
+                  </h2>
+                  {selectedBadge && selectedBadge !== "admin" && (
+                    <span
+                      className={`px-3 py-1 text-sm font-black uppercase tracking-wide rounded border-2 border-[#111827] ${
+                        selectedBadge === "approved"
+                          ? "bg-[#16A34A] text-white"
+                          : selectedBadge === "rejected"
+                            ? "bg-[#DC2626] text-white"
+                            : "bg-[#D97706] text-white"
+                      }`}
+                    >
+                      {selectedBadge.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+
+                {/* Vote chips */}
+                {selectedSlide.voteSession?.status === "tallied" && (
+                  <div className="flex items-center gap-3">
+                    <VoteChip
+                      label="Votes For"
+                      count={selectedSlide.voteSession.yes_count}
+                      teams={yesTeams}
+                      variant="for"
+                    />
+                    <VoteChip
+                      label="Votes Against"
+                      count={selectedSlide.voteSession.no_count}
+                      teams={noTeams}
+                      variant="against"
+                    />
+                  </div>
+                )}
+
+                {/* Discussion Summary card */}
+                <div className="border-2 border-[var(--border)] bg-[var(--paper-bg)] rounded-2xl shadow-[4px_4px_0_#000] overflow-hidden">
+                  <div className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center justify-center w-6 h-6 bg-[#16A34A] text-white rounded-full border border-[#111827] shrink-0">
+                          <svg
+                            className="w-3.5 h-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={3}
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4.5 12.75l6 6 9-13.5"
+                            />
+                          </svg>
+                        </span>
+                        <span className="font-bold text-lg">Discussion Summary</span>
+                      </div>
+                      {hasSummary && (
+                        <span className="text-sm text-[#16A34A] font-semibold flex items-center gap-1">
+                          <svg
+                            className="w-3.5 h-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={3}
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4.5 12.75l6 6 9-13.5"
+                            />
+                          </svg>
+                          Confidence:{" "}
+                          <span className="font-black text-[#16A34A]">High</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {hasSummary ? (
+                      <ul className="space-y-1.5 text-sm list-disc list-inside text-[var(--ink)]">
+                        {summaryLines.map((line, i) => (
+                          <li key={i} className="leading-relaxed">
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-[var(--ink)]/45 italic">
+                        Discussion summary pending. Content will be generated from the meeting transcript.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Transcript excerpt link */}
+                  <div className="border-t border-dashed border-[var(--border)]/40 px-5 py-3 flex justify-end">
+                    <button
+                      onClick={() => setShowTranscript(true)}
+                      className="text-sm font-semibold text-[#1D4ED8] hover:underline flex items-center gap-1"
+                    >
+                      View Transcript Excerpt
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2.5}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Commissioner Notes */}
+                {isCommissioner && (
+                  <div className="border-2 border-[var(--border)] bg-[var(--card-surface)] rounded-2xl shadow-[4px_4px_0_#000] overflow-hidden">
+                    <div className="p-5">
+                      <div className="font-bold text-base mb-3">Commissioner Notes</div>
+                      {isFinalized ? (
+                        <p className="text-sm text-[var(--ink)]/70 whitespace-pre-wrap min-h-[80px]">
+                          {selectedNotes || (
+                            <span className="italic text-[var(--ink)]/40">No notes recorded.</span>
+                          )}
+                        </p>
+                      ) : (
+                        <textarea
+                          value={selectedNotes}
+                          onChange={(e) => handleNoteChange(selectedSlide.id, e.target.value)}
+                          onBlur={handleNoteBlur}
+                          placeholder="Add notes or edits..."
+                          className="w-full min-h-[100px] bg-transparent border-none resize-none text-sm outline-none placeholder-[rgba(11,11,15,0.38)] text-[var(--ink)] leading-relaxed"
+                        />
+                      )}
+                    </div>
+                    <div className="px-5 py-2 flex justify-end border-t border-[var(--border)]/20">
+                      <span className="text-xs text-[var(--ink)]/38 italic">
+                        {noteSaved ? "Autosaved" : isFinalized ? "Read-only" : ""}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </main>
+      </div>
+
+      {/* Transcript modal */}
+      {showTranscript && selectedSlide && (
+        <TranscriptModal
+          transcript={transcript}
+          slideTitle={selectedSlide.title}
+          onClose={() => setShowTranscript(false)}
+        />
+      )}
     </div>
   );
 }
