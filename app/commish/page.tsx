@@ -19,7 +19,11 @@ export default async function CommishToolsPage() {
     .maybeSingle();
 
   if (!row) {
-    redirect("/");
+    return (
+      <div className="min-h-screen bg-[var(--paper-bg)] text-[var(--ink)] flex items-center justify-center">
+        <p className="text-[rgba(11,11,15,0.6)]">Session not found. Please <Link href="/" className="underline">return to the welcome page</Link> and select your team again.</p>
+      </div>
+    );
   }
 
   if (row.team_name !== COMMISSIONER_TEAM_NAME) {
