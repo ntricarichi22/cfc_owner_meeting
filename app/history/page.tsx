@@ -44,18 +44,21 @@ export default function HistoryPage() {
           {meetings.map((m) => (
             <PopCard key={m.id} className="p-0 hover:-translate-y-[1px] transition-transform">
               <Link
-                href={`/history/${m.club_year}`}
+                href={`/meeting/minutes?meetingId=${m.id}`}
                 className="block px-5 py-4"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold text-lg tracking-tight">{m.club_year} Season</span>
+                  <span className="font-semibold text-lg tracking-tight">{m.year} Season</span>
                   <Chip className="text-xs px-3 py-1">
                     {m.status}
                   </Chip>
                 </div>
-                {m.meeting_date && (
-                  <p className="text-[rgba(11,11,15,0.65)] text-sm mt-1">{new Date(m.meeting_date).toLocaleDateString()}</p>
-                )}
+                {(() => {
+                  const meetingDate = m.ended_at ?? m.meeting_date;
+                  return meetingDate ? (
+                    <p className="text-[rgba(11,11,15,0.65)] text-sm mt-1">{new Date(meetingDate).toLocaleDateString()}</p>
+                  ) : null;
+                })()}
               </Link>
             </PopCard>
           ))}

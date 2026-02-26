@@ -9,7 +9,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
   const { meetingId } = await params;
   const sb = getSupabaseServer();
 
-  const [agendaItemsRes, proposalsRes, voteSessionsRes] = await Promise.all([
+  const [agendaItemsRes, proposalsRes] = await Promise.all([
     sb
       .from("agenda_items")
       .select("id, title, category, order_index")
@@ -19,10 +19,6 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
       .from("proposals")
       .select("id, agenda_item_id, title, status, summary")
       .eq("meeting_id", meetingId),
-    sb
-      .from("proposal_vote_sessions")
-      .select("proposal_id, proposal_version_id, yes_count, no_count, total_count, passed, status")
-      .eq("meeting_id", meetingId),
   ]);
 
   if (agendaItemsRes.error)
@@ -30,6 +26,15 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
   if (proposalsRes.error)
     return jsonError(500, "Supabase error", proposalsRes.error.message, proposalsRes.error.code);
 
+  // Fetch vote sessions by proposal_id (not meeting_id) so sessions without meeting_id set
+  // are still found — a session's meeting_id may be NULL if created before the column existed.
+  const proposalIds = (proposalsRes.data || []).map((p) => p.id);
+  const voteSessionsRes = proposalIds.length > 0
+    ? await sb
+        .from("proposal_vote_sessions")
+        .select("proposal_id, proposal_version_id, yes_count, no_count, total_count, passed, status")
+        .in("proposal_id", proposalIds)
+    : { data: [] as Array<{ proposal_id: string; proposal_version_id: string; yes_count: number; no_count: number; total_count: number; passed: boolean | null; status: string }>, error: null };
   const voteSessions = voteSessionsRes.error ? [] : (voteSessionsRes.data || []);
 
   // Fetch individual votes for tallied sessions so the UI can show who voted which way

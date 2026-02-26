@@ -51,17 +51,12 @@ interface MeetingInfo {
 type SlideBadge = "approved" | "rejected" | "tabled" | "admin" | null;
 
 function getSlideBadge(slide: Slide): SlideBadge {
-  if (slide.proposal) {
-    if (slide.proposal.status === "passed") return "approved";
-    if (slide.proposal.status === "failed") return "rejected";
-    if (slide.proposal.status === "tabled") return "tabled";
-  }
-  // The tally route updates proposal_vote_sessions.passed but not proposals.status,
-  // so fall back to the vote session result as the authoritative outcome.
+  // Admin slides always get the Admin badge regardless of any other fields.
+  if (slide.category === "admin") return "admin";
+  // For proposal slides, the tallied vote session is the authoritative source of truth.
   if (slide.voteSession?.status === "tallied") {
     return slide.voteSession.passed ? "approved" : "rejected";
   }
-  if (slide.category === "admin") return "admin";
   return null;
 }
 
