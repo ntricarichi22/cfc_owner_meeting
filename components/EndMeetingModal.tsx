@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function EndMeetingModal({ onClose }: { onClose: () => void }) {
+export default function EndMeetingModal({ meetingId, onClose }: { meetingId: string; onClose: () => void }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [transcriptFile, setTranscriptFile] = useState<File | null>(null);
@@ -23,14 +23,14 @@ export default function EndMeetingModal({ onClose }: { onClose: () => void }) {
     try {
       const formData = new FormData();
       formData.append("transcript", transcriptFile);
+      formData.append("meetingId", meetingId);
       const res = await fetch("/api/meetings/end", { method: "POST", body: formData });
       const body = await res.json().catch(() => null);
       if (!res.ok) {
         setError(body?.error || "Failed to end meeting. Please try again.");
         return;
       }
-      const meetingId: string | undefined = body?.meetingId;
-      router.push(meetingId ? `/meeting/minutes?meetingId=${meetingId}` : "/meeting/minutes");
+      router.push(`/meeting/minutes?meetingId=${meetingId}`);
     } catch {
       setError("Network error. Please try again.");
     } finally {

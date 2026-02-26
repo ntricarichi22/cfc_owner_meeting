@@ -21,6 +21,11 @@ export async function POST(req: NextRequest) {
     return jsonError(400, "transcript file is required");
   }
 
+  const meetingId = formData.get("meetingId");
+  if (!meetingId || typeof meetingId !== "string") {
+    return jsonError(400, "meetingId is required");
+  }
+
   // Convert .docx transcript to plain text using mammoth
   const buffer = Buffer.from(await transcriptFile.arrayBuffer());
   let transcriptText = "";
@@ -33,16 +38,16 @@ export async function POST(req: NextRequest) {
 
   const sb = getSupabaseServer();
 
-  // Find the live meeting
+  // Verify the meeting exists and belongs to this finalization request
   const meetingRes = await sb
     .from("meetings")
     .select("id, status, locked")
-    .eq("status", "live")
+    .eq("id", meetingId)
     .maybeSingle();
   if (meetingRes.error) return jsonError(500, "Supabase error", meetingRes.error.message, meetingRes.error.code);
-  if (!meetingRes.data) return jsonError(404, "No live meeting found");
+  if (!meetingRes.data) return jsonError(404, "Meeting not found");
+  if (meetingRes.data.locked) return jsonError(409, "Meeting is already locked");
 
-  const meetingId = meetingRes.data.id;
   const now = new Date().toISOString();
 
   // Lock and finalize the meeting (finalized_at requires end_meeting_migration.sql to be applied)

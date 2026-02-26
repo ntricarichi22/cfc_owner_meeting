@@ -791,8 +791,8 @@ export default function MeetingOwnerPage() {
         />
       )}
 
-      {showEndMeetingModal && (
-        <EndMeetingModal onClose={() => setShowEndMeetingModal(false)} />
+      {showEndMeetingModal && meeting && (
+        <EndMeetingModal meetingId={meeting.id} onClose={() => setShowEndMeetingModal(false)} />
       )}
     </div>
   );
