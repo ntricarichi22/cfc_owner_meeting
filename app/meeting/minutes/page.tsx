@@ -1,33 +1,46 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
 
 export default function MeetingMinutesPage() {
   const { session, loading, isCommissioner, logout } = useSession();
+  const searchParams = useSearchParams();
   const [meetingId, setMeetingId] = useState<string | null>(null);
   const [minutes, setMinutes] = useState("");
   const [checklist, setChecklist] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [isDraft, setIsDraft] = useState(false);
 
   useEffect(() => {
     if (!session || !isCommissioner) return;
-    fetch("/api/meetings/current")
-      .then((res) => res.json())
-      .then((meeting) => {
-        if (!meeting?.id) return;
-        setMeetingId(meeting.id);
-        return fetch(`/api/meetings/${meeting.id}/minutes`);
-      })
-      .then(async (res) => {
-        if (!res) return;
-        const data = await res.json();
-        setMinutes(data?.minutes_markdown || "");
-        setChecklist(data?.checklist_markdown || "");
-      })
-      .catch(() => setMessage("Unable to load minutes"));
-  }, [session, isCommissioner]);
+
+    const paramMeetingId = searchParams.get("meetingId");
+
+    const loadMinutes = async (id: string) => {
+      const res = await fetch(`/api/meetings/${id}/minutes`);
+      if (!res.ok) { setMessage("Unable to load minutes"); return; }
+      const data = await res.json();
+      setMeetingId(id);
+      setMinutes(data?.minutes_markdown || "");
+      setChecklist(data?.checklist_markdown || "");
+    };
+
+    if (paramMeetingId) {
+      setIsDraft(true);
+      loadMinutes(paramMeetingId).catch(() => setMessage("Unable to load minutes"));
+    } else {
+      fetch("/api/meetings/current")
+        .then((res) => res.json())
+        .then((meeting) => {
+          if (!meeting?.id) return;
+          return loadMinutes(meeting.id);
+        })
+        .catch(() => setMessage("Unable to load minutes"));
+    }
+  }, [session, isCommissioner, searchParams]);
 
   if (loading) return <div className="min-h-screen bg-black" />;
   if (!session) return <div className="min-h-screen bg-black text-white p-6">Not logged in.</div>;
@@ -75,7 +88,19 @@ export default function MeetingMinutesPage() {
     <div className="min-h-screen bg-black text-white">
       <Nav teamName={session.team_name} isCommissioner={isCommissioner} onLogout={logout} />
       <main className="max-w-5xl mx-auto p-6 space-y-4">
-        <h1 className="text-2xl font-bold">Meeting Minutes</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Meeting Minutes</h1>
+          {isDraft && (
+            <span className="px-2 py-0.5 text-xs font-bold uppercase tracking-wide bg-yellow-500 text-black rounded">
+              Draft
+            </span>
+          )}
+        </div>
+        {isDraft && (
+          <p className="text-sm text-yellow-300">
+            Meeting ended. Review the transcript below, then click &quot;Generate minutes&quot; to produce formatted meeting minutes.
+          </p>
+        )}
         {message && <p className="text-sm text-blue-300">{message}</p>}
         <div className="flex gap-2">
           <button onClick={generate} className="px-4 py-2 rounded bg-blue-700 hover:bg-blue-600 text-sm">Generate minutes</button>
