@@ -240,7 +240,11 @@ export default function MeetingOwnerPage() {
         setMeetingNotFound(true);
         return;
       }
-      if (!res.ok) return;
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body?.error || `Failed to load meeting (HTTP ${res.status})`);
+        return;
+      }
       const m: Meeting = await res.json();
       setMeeting(m);
       setMeetingNotFound(false);
