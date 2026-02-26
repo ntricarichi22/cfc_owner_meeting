@@ -113,8 +113,7 @@ export default function Home() {
             {/* Blue accent slab right */}
             <span className="absolute right-0 top-1/2 -translate-y-1/2 w-5 h-14 bg-[#22A3FF]" aria-hidden />
             <h1
-              className="text-[6.5rem] leading-none font-black tracking-tight text-[#111111] select-none"
-              style={{ textShadow: "4px 4px 0 #BF8F00", letterSpacing: "-0.03em" }}
+              className="text-[6.5rem] leading-none font-black tracking-[-0.03em] text-[#111111] select-none [text-shadow:4px_4px_0_#BF8F00]"
             >
               CFC
             </h1>
@@ -132,8 +131,7 @@ export default function Home() {
           {/* "MEETING" italic brush style */}
           <div className="flex justify-center mb-5">
             <span
-              className="text-5xl font-black italic text-[#111111] tracking-tight"
-              style={{ fontFamily: "Georgia, 'Times New Roman', serif", textDecoration: "underline", textDecorationThickness: "3px", textUnderlineOffset: "4px" }}
+              className="text-5xl font-black italic text-[#111111] tracking-tight underline decoration-[3px] underline-offset-4 font-serif"
             >
               Meeting
             </span>
@@ -141,7 +139,7 @@ export default function Home() {
 
           {/* SELECT YOUR TEAM panel */}
           {!session ? (
-            <div className="relative border-3 border-[#111111] bg-[#F6F0E6] shadow-[6px_6px_0_#22A3FF] p-4 mb-4" style={{ border: "3px solid #111111" }}>
+            <div className="relative border-[3px] border-[#111111] bg-[#F6F0E6] shadow-[6px_6px_0_#22A3FF] p-4 mb-4">
               <p className="text-center text-sm font-black uppercase tracking-[0.2em] text-[#111111] mb-1">
                 Select Your Team
               </p>
@@ -169,7 +167,7 @@ export default function Home() {
               )}
             </div>
           ) : (
-            <div className="border-3 border-[#111111] bg-[#F6F0E6] shadow-[6px_6px_0_#22A3FF] p-4 mb-4 text-center" style={{ border: "3px solid #111111" }}>
+            <div className="border-[3px] border-[#111111] bg-[#F6F0E6] shadow-[6px_6px_0_#22A3FF] p-4 mb-4 text-center">
               <p className="text-sm font-black uppercase tracking-[0.2em] text-[#111111] mb-1">Welcome back</p>
               <div className="w-12 h-0.5 bg-[#FF3B30] mx-auto mb-2" />
               <p className="font-bold text-[#111111]">{session.team_name}</p>
@@ -183,8 +181,7 @@ export default function Home() {
           <button
             onClick={handleEnterMeeting}
             disabled={!session && !selectedTeamId}
-            className="w-full bg-[#BF8F00] border-3 border-[#111111] py-4 font-black uppercase tracking-[0.12em] text-lg text-[#111111] shadow-[5px_5px_0_#111111] transition-transform hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[7px_7px_0_#111111] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[3px_3px_0_#111111] disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111]"
-            style={{ border: "3px solid #111111" }}
+            className="w-full bg-[#BF8F00] border-[3px] border-[#111111] py-4 font-black uppercase tracking-[0.12em] text-lg text-[#111111] shadow-[5px_5px_0_#111111] transition-transform hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-[7px_7px_0_#111111] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[3px_3px_0_#111111] disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111]"
           >
             Enter Meeting →
           </button>

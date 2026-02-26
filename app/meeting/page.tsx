@@ -548,8 +548,8 @@ export default function MeetingOwnerPage() {
               <div className="flex flex-[2] items-center justify-center bg-[#22A3FF] border-l-4 border-[#111111] relative overflow-hidden">
                 {/* Watermark CFC */}
                 <span
-                  className="text-[9rem] md:text-[12rem] font-black italic tracking-tight select-none pointer-events-none"
-                  style={{ color: "rgba(255,255,255,0.15)", fontFamily: "Impact, 'Arial Narrow', sans-serif" }}
+                  className="text-[9rem] md:text-[12rem] font-black italic tracking-tight select-none pointer-events-none text-white/15"
+                  style={{ fontFamily: "Impact, 'Arial Narrow', sans-serif" }}
                   aria-hidden
                 >
                   CFC
