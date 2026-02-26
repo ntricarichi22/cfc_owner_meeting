@@ -86,7 +86,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#F6F0E6] flex items-center justify-center p-4">
       {/* Poster card */}
-      <div className="relative w-full min-h-[calc(100vh-2rem)] border-4 border-[#111111] shadow-[8px_8px_0_#111111] bg-[#F6F0E6] overflow-hidden flex flex-col justify-center">
+      <div className="relative w-full max-w-[70vw] min-h-[70vh] border-4 border-[#111111] shadow-[8px_8px_0_#111111] bg-[#F6F0E6] overflow-hidden flex flex-col justify-center">
 
         {/* Top-right gold corner accent */}
         <div className="absolute top-0 right-0 w-12 h-12 bg-[#BF8F00]" />
