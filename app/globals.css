@@ -181,34 +181,55 @@ h1, h2, h3, h4, h5, h6 {
   color: #111111;
 }
 
-.admin-slide-content table {
+/* Force Quill raw-HTML table embed to fill the admin slide card width */
+.admin-slide-content .ql-html-table {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Override Google Sheets fixed pixel widths so the table fills the container */
+.admin-slide-content table {
+  width: 100% !important;
+  table-layout: auto;
   border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+
+/* Strip fixed colgroup/col widths from pasted Google Sheets HTML */
+.admin-slide-content colgroup,
+.admin-slide-content col {
+  width: auto !important;
 }
 
 .admin-slide-content th,
 .admin-slide-content td {
   border: 2px solid #111111;
   padding: 12px 14px;
-  vertical-align: top;
+  vertical-align: middle;
+  word-break: break-word;
 }
 
 .admin-slide-content th {
-  background: #F6F0E6;
+  background: #e8e2d8;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .04em;
+  font-size: 0.85rem;
+  color: #111111;
 }
 
 .admin-slide-content td {
   font-weight: 500;
+  color: #111111;
 }
 
 .admin-slide-content tr:nth-child(even) td {
   background: rgba(0, 0, 0, 0.03);
 }
 
-/* Quill raw-HTML table embed wrapper – transparent pass-through */
+/* Quill raw-HTML table embed wrapper – transparent pass-through (non-admin contexts) */
 .ql-html-table {
   display: block;
   overflow-x: auto;
