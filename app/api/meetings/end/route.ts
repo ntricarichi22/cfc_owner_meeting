@@ -53,11 +53,11 @@ export async function POST(req: NextRequest) {
 
   const now = new Date().toISOString();
 
-  // Lock and finalize the meeting — meetings.finalized_at does not exist in the MVP schema,
-  // so only write fields that are guaranteed to be present.
+  // Lock the meeting — only write fields that exist and pass the DB check constraint.
+  // Do NOT set status; the live DB constraint only allows 'draft' and 'live'.
   const updateRes = await sb
     .from("meetings")
-    .update({ locked: true, status: "finalized" })
+    .update({ locked: true })
     .eq("id", meetingId);
   if (updateRes.error) {
     console.error("[end] meetings update failed:", updateRes.error.code, updateRes.error.message);
