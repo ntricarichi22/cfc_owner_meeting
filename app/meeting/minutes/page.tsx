@@ -56,8 +56,42 @@ function getSlideBadge(slide: Slide): SlideBadge {
     if (slide.proposal.status === "failed") return "rejected";
     if (slide.proposal.status === "tabled") return "tabled";
   }
+  // The tally route updates proposal_vote_sessions.passed but not proposals.status,
+  // so fall back to the vote session result as the authoritative outcome.
+  if (slide.voteSession?.status === "tallied") {
+    return slide.voteSession.passed ? "approved" : "rejected";
+  }
   if (slide.category === "admin") return "admin";
   return null;
+}
+
+/** Strip HTML tags and decode entities, returning plain text.
+ *  Uses DOMParser in the browser for robustness; falls back to regex (e.g. during SSR). */
+function stripHtml(html: string): string {
+  if (!html) return "";
+  if (typeof window !== "undefined") {
+    try {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      // Replace non-breaking spaces with regular spaces, then collapse whitespace
+      return (doc.body.textContent ?? "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+    } catch {
+      // fall through to regex
+    }
+  }
+  // Regex fallback for SSR or if DOMParser is unavailable.
+  // Iteratively strip tags (handles malformed/nested cases) — same approach as isEmptyHtml.
+  let result = html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/h[1-6]>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/li>/gi, "\n");
+  let prev = "";
+  while (result !== prev) {
+    prev = result;
+    result = result.replace(/<[^>]*>/g, "");
+  }
+  return result.replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function parseSlideNotes(checklist: string): Record<string, string> {
@@ -329,9 +363,11 @@ export default function MeetingMinutesPage() {
   const selectedBadge = selectedSlide ? getSlideBadge(selectedSlide) : null;
   const yesTeams = selectedSlide?.votes.filter((v) => v.vote === "yes").map((v) => v.team_name) ?? [];
   const noTeams = selectedSlide?.votes.filter((v) => v.vote === "no").map((v) => v.team_name) ?? [];
-  const hasSummary = !!(selectedSlide?.proposal?.summary?.trim());
+  // Strip HTML from summary before rendering – proposals use a rich-text editor that stores HTML
+  const cleanSummary = stripHtml(selectedSlide?.proposal?.summary ?? "");
+  const hasSummary = !!cleanSummary;
   const summaryLines = hasSummary
-    ? (selectedSlide?.proposal?.summary ?? "")
+    ? cleanSummary
         .split("\n")
         .map((l) => l.replace(/^[-•*]\s*/, "").trim())
         .filter(Boolean)
@@ -534,7 +570,7 @@ export default function MeetingMinutesPage() {
                       </ul>
                     ) : (
                       <p className="text-sm text-[var(--ink)]/45 italic">
-                        Discussion summary pending. Content will be generated from the meeting transcript.
+                        No usable transcript discussion was detected for this slide. Upload a Teams transcript to generate discussion summaries.
                       </p>
                     )}
                   </div>
