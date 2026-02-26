@@ -180,6 +180,7 @@ export default function MeetingOwnerPage() {
   const proposal = currentSlide > 0 ? sortedProposals[currentSlide - 1] ?? null : null;
   const activeVersion = proposal?.proposal_versions?.find((v) => v.is_active) ?? null;
   const dismissedKey = activeVersion?.id ? `voteModalDismissed:${activeVersion.id}` : null;
+  const autoOpenedKey = activeVersion?.id ? `voteModalAutoOpened:${activeVersion.id}` : null;
   const summaryText = summaryWithoutConstitutionLinks(proposal?.summary);
   const constitutionLinks = parseConstitutionLinks(proposal?.summary);
   // Build map: section id → section info for deep-link chips
@@ -336,13 +337,14 @@ export default function MeetingOwnerPage() {
         const prev = previousVoteStatusRef.current;
         setVoteSessionStatus(status);
         setVoteSessionPassed(data?.passed ?? null);
-        // Auto-open modal when voting becomes active (open or closed only, not tallied)
-        // but only if the user has not dismissed it for this proposalVersionId
-        if (
-          (status === "open" || status === "closed") &&
-          prev !== status
-        ) {
-          if (dismissedKey && !sessionStorage.getItem(dismissedKey)) {
+        // Auto-open modal at most once per proposalVersionId when voting opens.
+        // Skip if the user has already dismissed or the modal has already auto-opened.
+        if (status === "open") {
+          if (
+            dismissedKey && !sessionStorage.getItem(dismissedKey) &&
+            autoOpenedKey && !sessionStorage.getItem(autoOpenedKey)
+          ) {
+            sessionStorage.setItem(autoOpenedKey, "1");
             setShowVotingModal(true);
           }
         }
