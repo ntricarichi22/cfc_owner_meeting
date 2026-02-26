@@ -179,6 +179,7 @@ export default function MeetingOwnerPage() {
   const currentSlide = Math.min(parsedSlide, Math.max(0, slideCount - 1));
   const proposal = currentSlide > 0 ? sortedProposals[currentSlide - 1] ?? null : null;
   const activeVersion = proposal?.proposal_versions?.find((v) => v.is_active) ?? null;
+  const dismissedKey = activeVersion?.id ? `voteModalDismissed:${activeVersion.id}` : null;
   const summaryText = summaryWithoutConstitutionLinks(proposal?.summary);
   const constitutionLinks = parseConstitutionLinks(proposal?.summary);
   // Build map: section id → section info for deep-link chips
@@ -336,11 +337,14 @@ export default function MeetingOwnerPage() {
         setVoteSessionStatus(status);
         setVoteSessionPassed(data?.passed ?? null);
         // Auto-open modal when voting becomes active (open or closed only, not tallied)
+        // but only if the user has not dismissed it for this proposalVersionId
         if (
           (status === "open" || status === "closed") &&
           prev !== status
         ) {
-          setShowVotingModal(true);
+          if (dismissedKey && !sessionStorage.getItem(dismissedKey)) {
+            setShowVotingModal(true);
+          }
         }
         // Auto-close modal when voting goes back to not_open
         if (status === "not_open") {
@@ -616,7 +620,20 @@ export default function MeetingOwnerPage() {
                         <p className="text-xs text-[#DC2626]">{startVotingError}</p>
                       )}
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="shrink-0 flex flex-col items-end gap-1">
+                      <button
+                        onClick={() => {
+                          if (dismissedKey) sessionStorage.removeItem(dismissedKey);
+                          setShowVotingModal(true);
+                        }}
+                        disabled={voteSessionStatus !== "open"}
+                        className="px-5 py-3 font-black uppercase tracking-wide text-xl text-white bg-[#BF8F00] border-4 border-[#111111] shadow-[6px_6px_0_#111111] rounded-xl transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0"
+                      >
+                        VOTE NOW
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Content area */}
@@ -760,7 +777,10 @@ export default function MeetingOwnerPage() {
           proposalVersionId={activeVersion.id}
           isCommissioner={isCommissioner}
           proposalTitle={proposal?.title || "Current proposal"}
-          onClose={() => setShowVotingModal(false)}
+          onClose={() => {
+            if (dismissedKey) sessionStorage.setItem(dismissedKey, "1");
+            setShowVotingModal(false);
+          }}
         />
       )}
     </div>
