@@ -522,31 +522,40 @@ export default function MeetingOwnerPage() {
         )}
 
         {currentSlide === 0 ? (
-          <section className="h-full grid grid-cols-1 md:grid-cols-2 gap-6 py-6">
-            <PopCard className="h-full flex flex-col justify-between">
-              <div className="space-y-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-[rgba(11,11,15,0.6)]">Current Meeting</p>
-                <h1 className="text-4xl md:text-5xl font-bold mt-2 tracking-tight leading-tight">{meeting.title || "CFC Owners Meeting"}</h1>
-                <p className="text-[rgba(11,11,15,0.75)]">Annual owners meeting agenda and proposal voting deck.</p>
-              </div>
-              <div className="flex items-center gap-3 pt-6 flex-wrap">
-                <div className="h-14 w-14 rounded-[var(--radius)] border-[var(--border-width)] border-[var(--border)] bg-[var(--paper-bg)] shadow-[var(--shadow-style)] flex items-center justify-center text-lg font-semibold tracking-[0.14em]">
-                  CFC
+          <section className="h-full py-6">
+            {/* Title slide – split block design */}
+            <div className="h-full flex overflow-hidden border-4 border-[#111111] shadow-[6px_6px_0_#111111]">
+              {/* Left panel – paper, ~60% */}
+              <div className="flex flex-[3] flex-col min-h-0 bg-[#F6F0E6] relative">
+                {/* Top area: main title text */}
+                <div className="flex-1 flex flex-col justify-center px-8 md:px-12 pt-8">
+                  <h1 className="font-black uppercase leading-none text-[#111111] text-5xl md:text-7xl lg:text-8xl tracking-tight">
+                    2026<br />CFC<br />Owners<br />Meeting
+                  </h1>
                 </div>
-                <NeutralButton onClick={handleExitMeeting} className="text-sm px-4 py-2">Exit meeting</NeutralButton>
+                {/* Horizontal rule */}
+                <div className="h-px bg-[#111111] mx-8 md:mx-12" />
+                {/* Bottom area: date badge + exit */}
+                <div className="flex items-center justify-between px-8 md:px-12 py-6 flex-wrap gap-3">
+                  <span className="inline-flex items-center bg-[#BF8F00] border-2 border-[#111111] px-5 py-2 shadow-[4px_4px_0_#111111] font-black uppercase tracking-widest text-sm md:text-base text-[#111111]">
+                    March 1, 2026
+                  </span>
+                  <NeutralButton onClick={handleExitMeeting} className="text-sm px-4 py-2">Exit meeting</NeutralButton>
+                </div>
               </div>
-            </PopCard>
-            <PopCard className="h-full flex flex-col justify-between">
-              <div className="space-y-3">
-                <h2 className="text-2xl font-semibold tracking-tight">Slides</h2>
-                <p className="text-[rgba(11,11,15,0.75)]">Use arrow keys to move between agenda items and proposals.</p>
+
+              {/* Right panel – blue, ~40% */}
+              <div className="flex flex-[2] items-center justify-center bg-[#22A3FF] border-l-4 border-[#111111] relative overflow-hidden">
+                {/* Watermark CFC */}
+                <span
+                  className="text-[9rem] md:text-[12rem] font-black italic tracking-tight select-none pointer-events-none"
+                  style={{ color: "rgba(255,255,255,0.15)", fontFamily: "Impact, 'Arial Narrow', sans-serif" }}
+                  aria-hidden
+                >
+                  CFC
+                </span>
               </div>
-              <div className="flex items-center gap-3 pt-6 flex-wrap">
-                <Chip className="text-sm px-3 py-1">Total Slides: {slideCount}</Chip>
-                <Chip className="text-sm px-3 py-1">Team: {session.team_name}</Chip>
-                {isCommissioner && <Chip className="text-sm px-3 py-1">Commissioner</Chip>}
-              </div>
-            </PopCard>
+            </div>
           </section>
         ) : (
           <section className="h-full flex flex-col gap-4 py-6">
