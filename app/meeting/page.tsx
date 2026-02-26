@@ -734,14 +734,16 @@ export default function MeetingOwnerPage() {
 
                 {/* Content area – blue mat surrounding paper card */}
                 <div className="flex flex-1 min-h-0 bg-[#22A3FF] p-4">
-                  <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto bg-[#F6F1E7] border-4 border-[#111111] shadow-[6px_6px_0_#111111] rounded-2xl p-5 admin-richtext slide-content-card">
+                  <div className="flex-1 min-h-0 overflow-y-auto bg-[#F6F1E7] border-4 border-[#111111] shadow-[6px_6px_0_#111111] rounded-2xl p-5 admin-richtext slide-content-card admin-slide-content">
                     {summaryText ? (
-                      <RichTextViewer
-                        html={isHtmlContent(summaryText) ? summaryText : null}
-                        text={!isHtmlContent(summaryText) ? summaryText : null}
-                        invert={false}
-                        className="text-[#111111] [&_*]:text-[#111111] [&_*]:opacity-100"
-                      />
+                      <div className="overflow-x-auto max-w-full">
+                        <RichTextViewer
+                          html={isHtmlContent(summaryText) ? summaryText : null}
+                          text={!isHtmlContent(summaryText) ? summaryText : null}
+                          invert={false}
+                          className="text-[#111111] [&_*]:text-[#111111] [&_*]:opacity-100"
+                        />
+                      </div>
                     ) : (
                       <p className="italic text-[rgba(11,11,15,0.6)]">This item is discussion-only. Voting is not required for this slide.</p>
                     )}
