@@ -152,6 +152,30 @@ h1, h2, h3, h4, h5, h6 {
 .ql-font-Verdana { font-family: Verdana, sans-serif; }
 .ql-font-Trebuchet-MS { font-family: "Trebuchet MS", sans-serif; }
 
+/* Admin slide content card – table styling */
+.admin-richtext table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+
+.admin-richtext th,
+.admin-richtext td {
+  border: 2px solid #111111;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.admin-richtext th {
+  background: #e8e2d8;
+  font-weight: 700;
+  color: #111111;
+}
+
+.admin-richtext td {
+  color: #111111;
+}
+
 /* Render Quill font sizes in slide display */
 .ql-size-10px { font-size: 10px; }
 .ql-size-12px { font-size: 12px; }
