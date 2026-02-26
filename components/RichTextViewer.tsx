@@ -35,7 +35,9 @@ function transformNumberedParagraphs(html: string): string {
 export default function RichTextViewer({ html, text, items, className = "", invert = true }: RichTextViewerProps) {
   const sanitizedHtml = useMemo(() => {
     if (!html) return null;
-    const safe = DOMPurify.sanitize(html);
+    let safe = html.replace(/&nbsp;|\u00A0/g, " ");
+    safe = safe.replace(/\sstyle="[^"]*white-space\s*:\s*(nowrap|pre)[^"]*"/gi, "");
+    safe = DOMPurify.sanitize(safe);
     return transformNumberedParagraphs(safe);
   }, [html]);
 
