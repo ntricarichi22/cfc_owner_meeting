@@ -21,7 +21,12 @@ export default function MeetingMinutesPage() {
 
     const loadMinutes = async (id: string) => {
       const res = await fetch(`/api/meetings/${id}/minutes`);
-      if (!res.ok) { setMessage("Unable to load minutes"); return; }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const detail = [body?.error, body?.details, body?.code].filter(Boolean).join(" | ");
+        setMessage(`Unable to load minutes${detail ? `: ${detail}` : ""}`);
+        return;
+      }
       const data = await res.json();
       setMeetingId(id);
       setMinutes(data?.minutes_markdown || "");
@@ -51,7 +56,8 @@ export default function MeetingMinutesPage() {
     const res = await fetch(`/api/meetings/${meetingId}/minutes/generate`, { method: "POST" });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
-      setMessage(data?.error || "Generate failed");
+      const detail = [data?.error, data?.details, data?.code].filter(Boolean).join(" | ");
+      setMessage(detail || "Generate failed");
       return;
     }
     setMinutes(data?.minutes_markdown || "");
@@ -68,7 +74,8 @@ export default function MeetingMinutesPage() {
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
-      setMessage(data?.error || "Save failed");
+      const detail = [data?.error, data?.details, data?.code].filter(Boolean).join(" | ");
+      setMessage(detail || "Save failed");
       return;
     }
     setMessage("Checklist saved");
