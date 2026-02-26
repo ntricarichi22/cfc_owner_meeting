@@ -699,29 +699,54 @@ export default function MeetingOwnerPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col h-full min-h-0 gap-4">
-                <PopCard className="flex-shrink-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-xs uppercase tracking-[0.2em] text-[rgba(11,11,15,0.6)]">Admin Slide</span>
+              <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border-4 border-[#111111] shadow-[6px_6px_0_#111111]">
+                {/* Header band – same styling system as proposal slides */}
+                <div className="shrink-0 flex items-start gap-4 px-5 py-4 bg-[#F6F1E7] border-b-4 border-[#111111]">
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <h1
+                      className="text-2xl md:text-3xl lg:text-5xl font-black uppercase leading-none tracking-tight text-[#111111]"
+                      style={{ fontFamily: "var(--font-bebas, 'Bebas Neue', Impact, 'Arial Narrow', sans-serif)" }}
+                    >
+                      {proposal?.title || "General Agenda Item"}
+                    </h1>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-[#FF3B30] text-white border-2 border-[#111111] shadow-[3px_3px_0_#111111]">
+                        Proposed by:&nbsp;{proposal?.proposed_by || "Commissioner"}
+                      </span>
+                      {proposal?.effective_date && (
+                        <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-[#FF3B30] text-white border-2 border-[#111111] shadow-[3px_3px_0_#111111]">
+                          Effective Date:&nbsp;{proposal.effective_date}
+                        </span>
+                      )}
+                      {linkedSections.length > 0 ? (
+                        <ConstitutionChips
+                          sections={linkedSections}
+                          chipClassName="text-xs px-3 py-0.5 font-bold uppercase tracking-wide bg-[#FF3B30] text-white border-2 border-[#111111] shadow-[3px_3px_0_#111111]"
+                        />
+                      ) : (
+                        <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-[#FF3B30] text-white border-2 border-[#111111] shadow-[3px_3px_0_#111111]">
+                          No Articles Involved
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">
-                    {proposal?.title || "General agenda item"}
-                  </h1>
-                  <div className="flex flex-wrap items-center gap-2 mt-4">
-                    <Chip className="text-sm px-3 py-1">Proposed by: {proposal?.proposed_by || "Commissioner"}</Chip>
-                    <ConstitutionChips sections={linkedSections} />
+                </div>
+
+                {/* Content area – blue mat surrounding paper card */}
+                <div className="flex flex-1 min-h-0 bg-[#22A3FF] p-4">
+                  <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto bg-[#F6F1E7] border-4 border-[#111111] shadow-[6px_6px_0_#111111] rounded-2xl p-5 admin-richtext slide-content-card">
+                    {summaryText ? (
+                      <RichTextViewer
+                        html={isHtmlContent(summaryText) ? summaryText : null}
+                        text={!isHtmlContent(summaryText) ? summaryText : null}
+                        invert={false}
+                        className="text-[#111111] [&_*]:text-[#111111] [&_*]:opacity-100"
+                      />
+                    ) : (
+                      <p className="italic text-[rgba(11,11,15,0.6)]">This item is discussion-only. Voting is not required for this slide.</p>
+                    )}
                   </div>
-                </PopCard>
-                <PopCard className="flex-1 min-h-0 overflow-auto">
-                  {summaryText ? (
-                    <RichTextViewer
-                      html={isHtmlContent(summaryText) ? summaryText : null}
-                      text={!isHtmlContent(summaryText) ? summaryText : null}
-                    />
-                  ) : (
-                    <p className="text-[rgba(11,11,15,0.7)]">This item is discussion-only. Voting is not required for this slide.</p>
-                  )}
-                </PopCard>
+                </div>
               </div>
             )}
           </section>
