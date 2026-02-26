@@ -242,6 +242,13 @@ export default function MeetingBuilderPage() {
     });
   };
 
+  const removeTablesFromContent = () => {
+    if (!formData.summary || !formData.summary.includes("<table")) return;
+    const doc = new DOMParser().parseFromString(formData.summary, "text/html");
+    doc.querySelectorAll("table").forEach((t) => t.remove());
+    updateField("summary", doc.body.innerHTML);
+  };
+
   const toggleArticleSection = (sectionId: string) => {
     setFormData((prev) => {
       const current = prev.article_sections;
@@ -645,9 +652,20 @@ export default function MeetingBuilderPage() {
 
               {/* Details / Content */}
               <div>
-                <label className="text-xs text-white/50 block mb-1">
-                  {isAdmin ? "Content" : "Details"}
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs text-white/50">
+                    {isAdmin ? "Content" : "Details"}
+                  </label>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={removeTablesFromContent}
+                      className="text-xs text-red-400 hover:text-red-300 transition"
+                    >
+                      Remove Table
+                    </button>
+                  )}
+                </div>
                 <RichTextEditor
                   value={formData.summary}
                   onChange={(val) => updateField("summary", val)}
