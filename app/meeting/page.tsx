@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Nav from "@/components/Nav";
 import RichTextViewer from "@/components/RichTextViewer";
@@ -179,8 +179,7 @@ export default function MeetingOwnerPage() {
   const currentSlide = Math.min(parsedSlide, Math.max(0, slideCount - 1));
   const proposal = currentSlide > 0 ? sortedProposals[currentSlide - 1] ?? null : null;
   const activeVersion = proposal?.proposal_versions?.find((v) => v.is_active) ?? null;
-  const dismissedKey = activeVersion?.id ? `voteModalDismissed:${activeVersion.id}` : null;
-  const autoOpenedKey = activeVersion?.id ? `voteModalAutoOpened:${activeVersion.id}` : null;
+
   const summaryText = summaryWithoutConstitutionLinks(proposal?.summary);
   const constitutionLinks = parseConstitutionLinks(proposal?.summary);
   // Build map: section id → section info for deep-link chips
@@ -218,8 +217,6 @@ export default function MeetingOwnerPage() {
     const parsed = parseRationale(activeVersion?.rationale);
     return { ...parsed, prosHtml: null, consHtml: null };
   })();
-  const previousVoteStatusRef = useRef<string | null>(null);
-
   const changeSlide = useCallback((nextSlide: number) => {
     router.replace(`/meeting?slide=${nextSlide}`, { scroll: false });
   }, [router]);
@@ -312,7 +309,6 @@ export default function MeetingOwnerPage() {
 
   useEffect(() => {
     if (!activeVersion?.id) {
-      previousVoteStatusRef.current = null;
       setShowVotingModal(false);
       setVoteSessionStatus("not_open");
       setVoteSessionPassed(null);
@@ -321,7 +317,6 @@ export default function MeetingOwnerPage() {
 
     // Never show voting modal on admin slides
     if ((proposal?.proposal_type || "proposal") === "admin") {
-      previousVoteStatusRef.current = null;
       setShowVotingModal(false);
       setVoteSessionStatus("not_open");
       setVoteSessionPassed(null);
@@ -334,25 +329,12 @@ export default function MeetingOwnerPage() {
         if (!res.ok) return;
         const data = await res.json();
         const status = String(data?.status ?? "not_open");
-        const prev = previousVoteStatusRef.current;
         setVoteSessionStatus(status);
         setVoteSessionPassed(data?.passed ?? null);
-        // Auto-open modal at most once per proposalVersionId when voting opens.
-        // Skip if the user has already dismissed or the modal has already auto-opened.
-        if (status === "open") {
-          if (
-            dismissedKey && !sessionStorage.getItem(dismissedKey) &&
-            autoOpenedKey && !sessionStorage.getItem(autoOpenedKey)
-          ) {
-            sessionStorage.setItem(autoOpenedKey, "1");
-            setShowVotingModal(true);
-          }
-        }
-        // Auto-close modal when voting goes back to not_open
+        // Close modal automatically only when voting is reset to not_open
         if (status === "not_open") {
           setShowVotingModal(false);
         }
-        previousVoteStatusRef.current = status;
       } catch {
         // ignore voting poll errors
       }
@@ -625,10 +607,7 @@ export default function MeetingOwnerPage() {
                   ) : (
                     <div className="shrink-0 flex flex-col items-end gap-1">
                       <button
-                        onClick={() => {
-                          if (dismissedKey) sessionStorage.removeItem(dismissedKey);
-                          setShowVotingModal(true);
-                        }}
+                        onClick={() => setShowVotingModal(true)}
                         disabled={voteSessionStatus !== "open"}
                         className="px-5 py-3 font-black uppercase tracking-wide text-xl text-white bg-[#BF8F00] border-4 border-[#111111] shadow-[6px_6px_0_#111111] rounded-xl transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0"
                       >
@@ -779,10 +758,7 @@ export default function MeetingOwnerPage() {
           proposalVersionId={activeVersion.id}
           isCommissioner={isCommissioner}
           proposalTitle={proposal?.title || "Current proposal"}
-          onClose={() => {
-            if (dismissedKey) sessionStorage.setItem(dismissedKey, "1");
-            setShowVotingModal(false);
-          }}
+          onClose={() => setShowVotingModal(false)}
         />
       )}
     </div>
