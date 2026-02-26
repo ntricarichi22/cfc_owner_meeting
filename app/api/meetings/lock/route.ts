@@ -11,9 +11,9 @@ export async function POST(req: NextRequest) {
   if (typeof locked !== "boolean") return jsonError(400, "locked boolean is required");
 
   const sb = getSupabaseServer();
-  const meeting = await sb.from("meetings").select("id").eq("status", "live").maybeSingle();
+  const meeting = await sb.from("meetings").select("id").eq("status", "active").maybeSingle();
   if (meeting.error) return jsonError(500, "Supabase error", meeting.error.message, meeting.error.code);
-  if (!meeting.data) return jsonError(404, "No live meeting");
+  if (!meeting.data) return jsonError(404, "No active meeting");
 
   const update = await sb.from("meetings").update({ locked }).eq("id", meeting.data.id);
   if (update.error) return jsonError(500, "Supabase error", update.error.message, update.error.code);

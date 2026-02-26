@@ -59,9 +59,24 @@ export async function createMeeting(year: number, title?: string) {
   if (error) throw new Error(error.message);
 }
 
-export async function updateMeetingStatus(meetingId: string, status: string) {
+export async function updateMeetingStatus(meetingId: string, status: 'draft' | 'active') {
   await requireCommissioner();
   const { error } = await sb().from("meetings").update({ status }).eq("id", meetingId);
+  if (error) throw new Error(error.message);
+}
+
+export async function lockMeeting(meetingId: string) {
+  await requireCommissioner();
+  const { error } = await sb().from("meetings").update({ locked: true }).eq("id", meetingId);
+  if (error) throw new Error(error.message);
+}
+
+export async function finalizeMeeting(meetingId: string) {
+  await requireCommissioner();
+  const { error } = await sb()
+    .from("meetings")
+    .update({ status: "finalized", finalized_at: new Date().toISOString(), locked: true })
+    .eq("id", meetingId);
   if (error) throw new Error(error.message);
 }
 

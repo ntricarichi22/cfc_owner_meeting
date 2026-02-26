@@ -6,6 +6,7 @@ import Nav from "@/components/Nav";
 import RichTextViewer from "@/components/RichTextViewer";
 import { useSession } from "@/components/TeamSelector";
 import VotingModal from "@/components/VotingModal";
+import EndMeetingModal from "@/components/EndMeetingModal";
 import { COMMISSIONER_TEAM_NAME } from "@/lib/constants";
 import { isHtmlContent, isEmptyHtml } from "@/lib/html-utils";
 import { Chip, PopCard, NeutralButton } from "@/components/ui/primitives";
@@ -163,6 +164,7 @@ export default function MeetingOwnerPage() {
   const [error, setError] = useState<string | null>(null);
   const [meetingNotFound, setMeetingNotFound] = useState(false);
   const [showVotingModal, setShowVotingModal] = useState(false);
+  const [showEndMeetingModal, setShowEndMeetingModal] = useState(false);
   const [startVotingError, setStartVotingError] = useState<string | null>(null);
   const [voteSessionStatus, setVoteSessionStatus] = useState<string>("not_open");
   const [voteSessionPassed, setVoteSessionPassed] = useState<boolean | null>(null);
@@ -219,7 +221,15 @@ export default function MeetingOwnerPage() {
   })();
   const changeSlide = useCallback((nextSlide: number) => {
     router.replace(`/meeting?slide=${nextSlide}`, { scroll: false });
-  }, [router]);
+    if (meeting?.id) {
+      // Fire-and-forget audit event for slide navigation
+      fetch(`/api/meetings/${meeting.id}/audit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event_type: "slide_changed", payload: { slide: nextSlide } }),
+      }).catch(() => {});
+    }
+  }, [router, meeting?.id]);
 
   useEffect(() => {
     if (!searchParams.get("slide") || parsedSlide !== currentSlide) {
@@ -438,7 +448,7 @@ export default function MeetingOwnerPage() {
   };
 
   const handleStartVoting = async () => {
-    if (!activeVersion?.id) return;
+    if (!activeVersion?.id || meeting?.locked) return;
     setStartVotingError(null);
     try {
       const res = await fetch("/api/voting/open", {
@@ -535,12 +545,22 @@ export default function MeetingOwnerPage() {
                 </div>
                 {/* Horizontal rule */}
                 <div className="h-px bg-[#111111] mx-8 md:mx-12" />
-                {/* Bottom area: date badge + exit */}
+                {/* Bottom area: date badge + exit + end meeting */}
                 <div className="flex items-center justify-between px-8 md:px-12 py-6 flex-wrap gap-3">
                   <span className="inline-flex items-center bg-[#BF8F00] border-2 border-[#111111] px-5 py-2 shadow-[4px_4px_0_#111111] font-black uppercase tracking-widest text-sm md:text-base text-[#111111]">
                     March 1, 2026
                   </span>
-                  <NeutralButton onClick={handleExitMeeting} className="text-sm px-4 py-2">Exit meeting</NeutralButton>
+                  <div className="flex items-center gap-3">
+                    {isCommissioner && !meeting?.locked && (
+                      <button
+                        onClick={() => setShowEndMeetingModal(true)}
+                        className="px-4 py-2 font-black uppercase tracking-wide text-sm text-white bg-[#DC2626] border-2 border-[#111111] shadow-[4px_4px_0_#111111] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-transform"
+                      >
+                        End Meeting
+                      </button>
+                    )}
+                    <NeutralButton onClick={handleExitMeeting} className="text-sm px-4 py-2">Exit meeting</NeutralButton>
+                  </div>
                 </div>
               </div>
 
@@ -601,7 +621,7 @@ export default function MeetingOwnerPage() {
                         </button>
                       )}
                     </div>
-                  ) : isCommissioner ? (
+                  ) : meeting?.locked ? null : isCommissioner ? (
                     <div className="shrink-0 flex flex-col items-end gap-1">
                       <button
                         onClick={handleStartVoting}
@@ -617,7 +637,7 @@ export default function MeetingOwnerPage() {
                     <div className="shrink-0 flex flex-col items-end gap-1">
                       <button
                         onClick={() => setShowVotingModal(true)}
-                        disabled={voteSessionStatus !== "open"}
+                        disabled={voteSessionStatus !== "open" || !!meeting?.locked}
                         className="px-5 py-3 font-black uppercase tracking-wide text-xl text-white bg-[#BF8F00] border-4 border-[#111111] shadow-[6px_6px_0_#111111] rounded-xl transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0"
                       >
                         VOTE NOW
@@ -762,13 +782,17 @@ export default function MeetingOwnerPage() {
         )}
       </main>
 
-      {showVotingModal && activeVersion?.id && (proposal?.proposal_type || "proposal") !== "admin" && (
+      {showVotingModal && activeVersion?.id && (proposal?.proposal_type || "proposal") !== "admin" && !meeting?.locked && (
         <VotingModal
           proposalVersionId={activeVersion.id}
           isCommissioner={isCommissioner}
           proposalTitle={proposal?.title || "Current proposal"}
           onClose={() => setShowVotingModal(false)}
         />
+      )}
+
+      {showEndMeetingModal && meeting && (
+        <EndMeetingModal meetingId={meeting.id} onClose={() => setShowEndMeetingModal(false)} />
       )}
     </div>
   );
