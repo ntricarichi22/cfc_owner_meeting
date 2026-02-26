@@ -80,7 +80,11 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
             status: voteSession.status,
           }
         : null,
-      votes: slideVotes.map((v) => ({ team_name: v.team_name, vote: v.vote })),
+      votes: slideVotes
+        .filter((v): v is { proposal_version_id: string; team_name: string; vote: "yes" | "no" } =>
+          v.vote === "yes" || v.vote === "no",
+        )
+        .map((v) => ({ team_name: v.team_name, vote: v.vote })),
     };
   });
 
