@@ -24,6 +24,9 @@ const FONT_SIZES = [
 
 /* Register custom font and size whitelists with Quill */
 let quillRegistered = false;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let QuillDelta: any = null;
+
 async function registerQuillFormats() {
   if (quillRegistered) return;
   try {
@@ -37,6 +40,31 @@ async function registerQuillFormats() {
     const Size = Quill.import("formats/size") as any;
     Size.whitelist = FONT_SIZES;
     Quill.register(Size, true);
+
+    // Register a custom blot that stores raw table HTML so that
+    // merged cells (colspan/rowspan) pasted from Google Sheets are preserved.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const BlockEmbed = Quill.import("blots/block/embed") as any;
+    class TableHtmlBlot extends BlockEmbed {
+      static blotName = "table-html";
+      static tagName = "div";
+      static className = "ql-html-table";
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      static create(value: any) {
+        const node = super.create() as HTMLElement;
+        node.setAttribute("contenteditable", "false");
+        node.innerHTML = typeof value === "string" ? value : "";
+        return node;
+      }
+
+      static value(node: HTMLElement) {
+        return node.innerHTML;
+      }
+    }
+    Quill.register(TableHtmlBlot, true);
+
+    QuillDelta = Quill.import("delta");
 
     quillRegistered = true;
   } catch {
@@ -72,6 +100,22 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
   const modules = useMemo(
     () => ({
       toolbar: TOOLBAR_OPTIONS,
+      clipboard: {
+        // Preserve merged-cell tables (colspan/rowspan) pasted from
+        // Google Sheets by storing the full table HTML as a raw embed
+        // instead of letting Quill flatten it to its simplified Delta format.
+        matchers: [
+          [
+            "table",
+            (node: Element, delta: unknown) => {
+              // QuillDelta is set during registerQuillFormats(); fall back to
+              // the default delta if it hasn't been initialised yet.
+              if (!QuillDelta) return delta;
+              return new QuillDelta().insert({ "table-html": (node as HTMLElement).outerHTML });
+            },
+          ],
+        ],
+      },
     }),
     []
   );

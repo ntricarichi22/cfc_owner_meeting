@@ -195,13 +195,23 @@ h1, h2, h3, h4, h5, h6 {
 
 .admin-slide-content th {
   background: #F6F0E6;
-  font-weight: 900;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .02em;
+  letter-spacing: .04em;
+}
+
+.admin-slide-content td {
+  font-weight: 500;
 }
 
 .admin-slide-content tr:nth-child(even) td {
   background: rgba(0, 0, 0, 0.03);
+}
+
+/* Quill raw-HTML table embed wrapper – transparent pass-through */
+.ql-html-table {
+  display: block;
+  overflow-x: auto;
 }
 
 /* Render Quill font sizes in slide display */
