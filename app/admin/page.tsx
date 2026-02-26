@@ -5,7 +5,7 @@ import { useSession } from "@/components/TeamSelector";
 import Nav from "@/components/Nav";
 import {
   getOwners, updateOwner, createOwner,
-  getMeetings, createMeeting, updateMeetingStatus, lockMeeting,
+  getMeetings, createMeeting, updateMeetingStatus, lockMeeting, finalizeMeeting,
   getAgendaSections, createAgendaSection, updateAgendaSection, deleteAgendaSection,
   getAgendaItems, createAgendaItem, updateAgendaItem, deleteAgendaItem,
   getProposal, updateProposal, getProposalVersions, updateProposalVersion,
@@ -251,7 +251,7 @@ function MeetingsTab() {
             className={`text-left bg-gray-900 border rounded-lg p-3 transition ${selectedMeeting?.id === m.id ? "border-blue-500" : "border-gray-800 hover:border-gray-600"}`}>
             <div className="flex justify-between">
               <span className="font-semibold">{m.club_year} Meeting</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${m.locked ? "bg-blue-700 text-blue-100" : m.status === "live" ? "bg-green-700 text-green-100" : "bg-gray-700 text-gray-300"}`}>{m.locked ? "locked" : m.status}</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${m.locked ? "bg-blue-700 text-blue-100" : m.status === "active" ? "bg-green-700 text-green-100" : "bg-gray-700 text-gray-300"}`}>{m.locked ? "locked" : m.status}</span>
             </div>
             {m.meeting_date && <p className="text-gray-500 text-xs mt-1">{m.meeting_date}</p>}
           </button>
@@ -263,7 +263,7 @@ function MeetingsTab() {
         <div className="space-y-6 border-t border-gray-800 pt-6">
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-semibold">{selectedMeeting.club_year} Meeting</h3>
-            <button className={btnSecondary} onClick={async () => { await updateMeetingStatus(selectedMeeting.id, "live"); await loadMeetings(); selectMeeting({ ...selectedMeeting, status: "live" }); }}>Set Live</button>
+            <button className={btnSecondary} onClick={async () => { await updateMeetingStatus(selectedMeeting.id, "active"); await loadMeetings(); selectMeeting({ ...selectedMeeting, status: "active" }); }}>Set Active</button>
             <button className={btnSecondary} onClick={async () => { await updateMeetingStatus(selectedMeeting.id, "draft"); await loadMeetings(); selectMeeting({ ...selectedMeeting, status: "draft" }); }}>Set Draft</button>
           </div>
 
@@ -747,8 +747,8 @@ function FinalizeTab() {
   const finalize = async () => {
     if (!selectedId) return;
     try {
-      await lockMeeting(selectedId);
-      setMsg("Meeting locked");
+      await finalizeMeeting(selectedId);
+      setMsg("Meeting finalized");
       setMeetings(await getMeetings());
     } catch (e: unknown) { setMsg(e instanceof Error ? e.message : "Error"); }
   };

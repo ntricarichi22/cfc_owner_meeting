@@ -53,11 +53,10 @@ export async function POST(req: NextRequest) {
 
   const now = new Date().toISOString();
 
-  // Lock the meeting — only write fields that exist and pass the DB check constraint.
-  // Do NOT set status; the live DB constraint only allows 'draft' and 'live'.
+  // Lock and end the meeting — the DB constraint now allows 'draft', 'active', 'ended', 'finalized'.
   const updateRes = await sb
     .from("meetings")
-    .update({ locked: true })
+    .update({ status: "ended", locked: true, ended_at: now })
     .eq("id", meetingId);
   if (updateRes.error) {
     console.error("[end] meetings update failed:", updateRes.error.code, updateRes.error.message);

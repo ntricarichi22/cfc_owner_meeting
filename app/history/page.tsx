@@ -16,7 +16,7 @@ export default function HistoryPage() {
   useEffect(() => {
     if (!session) return;
     getMeetings()
-      .then((data) => setMeetings(data as Meeting[]))
+      .then((data) => setMeetings((data as Meeting[]).filter((m) => m.status === "finalized")))
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load meetings"));
   }, [session]);
 

@@ -2,7 +2,7 @@ export interface Meeting {
   id: string;
   year: number;
   title: string;
-  status: "draft" | "live" | "finalized";
+  status: "draft" | "active" | "ended" | "finalized";
   locked: boolean;
   created_at: string;
   // Legacy fields for backward compatibility with existing pages
@@ -10,6 +10,7 @@ export interface Meeting {
   club_year?: number;
   meeting_date?: string | null;
   current_agenda_item_id?: string | null;
+  ended_at?: string | null;
   finalized_at?: string | null;
 }
 
