@@ -175,11 +175,17 @@ export default function MeetingOwnerPage() {
   const sortedProposals = [...proposals].sort(
     (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0) || a.created_at.localeCompare(b.created_at)
   );
-  const slideCount = sortedProposals.length + 1;
+  // slideCount = title slide (0) + proposals + closing slide (last)
+  const slideCount = sortedProposals.length + 2;
   const slideParam = Number(searchParams.get("slide") ?? "0");
   const parsedSlide = Number.isFinite(slideParam) && slideParam >= 0 ? Math.floor(slideParam) : 0;
-  const currentSlide = Math.min(parsedSlide, Math.max(0, slideCount - 1));
-  const proposal = currentSlide > 0 ? sortedProposals[currentSlide - 1] ?? null : null;
+  const maxSlide = Math.max(0, slideCount - 1);
+  // Non-commissioners always follow meeting.current_slide_index; commissioners use URL param.
+  const currentSlide = !isCommissioner && meeting
+    ? Math.min(meeting.current_slide_index ?? parsedSlide, maxSlide)
+    : Math.min(parsedSlide, maxSlide);
+  const isClosingSlide = slideCount > 1 && currentSlide === slideCount - 1;
+  const proposal = currentSlide > 0 && !isClosingSlide ? sortedProposals[currentSlide - 1] ?? null : null;
   const activeVersion = proposal?.proposal_versions?.find((v) => v.is_active) ?? null;
 
   const summaryText = summaryWithoutConstitutionLinks(proposal?.summary);
@@ -222,6 +228,14 @@ export default function MeetingOwnerPage() {
   const changeSlide = useCallback((nextSlide: number) => {
     router.replace(`/meeting?slide=${nextSlide}`, { scroll: false });
     if (meeting?.id) {
+      if (isCommissioner) {
+        // Persist slide position so all non-commissioner clients follow along
+        fetch(`/api/meetings/${meeting.id}/slide`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slide_index: nextSlide }),
+        }).catch(() => {});
+      }
       // Fire-and-forget audit event for slide navigation
       fetch(`/api/meetings/${meeting.id}/audit`, {
         method: "POST",
@@ -229,7 +243,7 @@ export default function MeetingOwnerPage() {
         body: JSON.stringify({ event_type: "slide_changed", payload: { slide: nextSlide } }),
       }).catch(() => {});
     }
-  }, [router, meeting?.id]);
+  }, [router, meeting?.id, isCommissioner]);
 
   useEffect(() => {
     if (!searchParams.get("slide") || parsedSlide !== currentSlide) {
@@ -356,6 +370,7 @@ export default function MeetingOwnerPage() {
   }, [activeVersion?.id, proposal?.proposal_type]);
 
   useEffect(() => {
+    if (!isCommissioner) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "ArrowRight" && currentSlide < slideCount - 1) {
         changeSlide(currentSlide + 1);
@@ -366,7 +381,7 @@ export default function MeetingOwnerPage() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [currentSlide, slideCount, changeSlide]);
+  }, [currentSlide, slideCount, changeSlide, isCommissioner]);
 
   const handleSubmitAmendment = async () => {
     if (!proposal || !amendText.trim()) return;
@@ -512,7 +527,7 @@ export default function MeetingOwnerPage() {
       )}
 
       <main className="group relative h-[calc(100vh-64px)] overflow-hidden px-4 md:px-8 pb-8">
-        {currentSlide > 0 && (
+        {isCommissioner && currentSlide > 0 && (
           <button
             onClick={() => changeSlide(currentSlide - 1)}
             className="absolute left-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full border-[var(--border-width)] border-[var(--border)] bg-[var(--card-surface)] text-[var(--ink)] shadow-[var(--shadow-style)] hover:-translate-x-[2px] hover:shadow-[5px_5px_0_var(--shadow)] transition-transform"
@@ -521,7 +536,7 @@ export default function MeetingOwnerPage() {
             ←
           </button>
         )}
-        {currentSlide < slideCount - 1 && (
+        {isCommissioner && currentSlide < slideCount - 1 && (
           <button
             onClick={() => changeSlide(currentSlide + 1)}
             className="absolute right-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full border-[var(--border-width)] border-[var(--border)] bg-[var(--card-surface)] text-[var(--ink)] shadow-[var(--shadow-style)] hover:translate-x-[2px] hover:shadow-[5px_5px_0_var(--shadow)] transition-transform"
@@ -567,6 +582,51 @@ export default function MeetingOwnerPage() {
               {/* Right panel – blue, ~40% */}
               <div className="flex flex-[2] items-center justify-center bg-[#22A3FF] border-l-4 border-[#111111] relative overflow-hidden">
                 {/* Watermark CFC */}
+                <span
+                  className="text-[9rem] md:text-[12rem] font-black italic tracking-tight select-none pointer-events-none text-white/15"
+                  style={{ fontFamily: "Impact, 'Arial Narrow', sans-serif" }}
+                  aria-hidden
+                >
+                  CFC
+                </span>
+              </div>
+            </div>
+          </section>
+        ) : isClosingSlide ? (
+          <section className="h-full py-6">
+            {/* Closing slide – mirrors title slide layout */}
+            <div className="h-full flex overflow-hidden border-4 border-[#111111] shadow-[6px_6px_0_#111111]">
+              {/* Left panel – paper, ~60% */}
+              <div className="flex flex-[3] flex-col min-h-0 bg-[#F6F0E6] relative">
+                {/* Top area: closing message */}
+                <div className="flex-1 flex flex-col justify-center px-8 md:px-12 pt-8">
+                  <h1 className="font-black uppercase leading-none text-[#111111] text-5xl md:text-7xl lg:text-8xl tracking-tight">
+                    {meeting?.year}<br />CFC<br />Meeting<br />Adjourned
+                  </h1>
+                </div>
+                {/* Horizontal rule */}
+                <div className="h-px bg-[#111111] mx-8 md:mx-12" />
+                {/* Bottom area: end meeting + exit */}
+                <div className="flex items-center justify-between px-8 md:px-12 py-6 flex-wrap gap-3">
+                  <span className="inline-flex items-center bg-[#BF8F00] border-2 border-[#111111] px-5 py-2 shadow-[4px_4px_0_#111111] font-black uppercase tracking-widest text-sm md:text-base text-[#111111]">
+                    Thank You
+                  </span>
+                  <div className="flex items-center gap-3">
+                    {isCommissioner && !meeting?.locked && (
+                      <button
+                        onClick={() => setShowEndMeetingModal(true)}
+                        className="px-4 py-2 font-black uppercase tracking-wide text-sm text-white bg-[#DC2626] border-2 border-[#111111] shadow-[4px_4px_0_#111111] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-transform"
+                      >
+                        End Meeting
+                      </button>
+                    )}
+                    <NeutralButton onClick={handleExitMeeting} className="text-sm px-4 py-2">Exit meeting</NeutralButton>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right panel – blue, ~40% */}
+              <div className="flex flex-[2] items-center justify-center bg-[#22A3FF] border-l-4 border-[#111111] relative overflow-hidden">
                 <span
                   className="text-[9rem] md:text-[12rem] font-black italic tracking-tight select-none pointer-events-none text-white/15"
                   style={{ fontFamily: "Impact, 'Arial Narrow', sans-serif" }}
