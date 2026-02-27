@@ -32,6 +32,9 @@ interface Slide {
   order_index: number;
   title: string;
   category: string;
+  proposed_by: string | null;
+  effective_date: string | null;
+  article_sections: string[];
   proposal: SlideProposal | null;
   voteSession: SlideVoteSession | null;
   votes: SlideVote[];
@@ -44,6 +47,17 @@ interface MeetingInfo {
   status: string;
   ended_at: string | null;
   finalized_at: string | null;
+}
+
+interface ConstitutionSectionInfo {
+  id: string;
+  section_key?: string;
+  title?: string;
+  section_num?: string;
+  section_title?: string;
+  anchor?: string;
+  article_num?: number | null;
+  article_title?: string | null;
 }
 
 /* ---------- Helpers ---------- */
@@ -240,6 +254,7 @@ export default function MeetingMinutesPage() {
   const [noteSaved, setNoteSaved] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [constitutionSections, setConstitutionSections] = useState<ConstitutionSectionInfo[]>([]);
 
   const notesRef = useRef<Record<string, string>>({});
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -248,6 +263,15 @@ export default function MeetingMinutesPage() {
   useEffect(() => {
     notesRef.current = notes;
   }, [notes]);
+
+  // Load constitution sections once for chip resolution
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/constitution-sections")
+      .then((r) => r.json())
+      .then((data) => setConstitutionSections(Array.isArray(data) ? data : []))
+      .catch(() => setConstitutionSections([]));
+  }, [session]);
 
   // Load meeting + slides + minutes data
   useEffect(() => {
@@ -368,6 +392,31 @@ export default function MeetingMinutesPage() {
         .filter(Boolean)
     : [];
   const selectedNotes = selectedSlide ? (notes[selectedSlide.id] ?? "") : "";
+
+  // Build constitution section lookup for chip rendering
+  const sectionMap = new Map(constitutionSections.map((s) => [s.id, s]));
+  const linkedSections = (selectedSlide?.article_sections ?? [])
+    .map((id) => sectionMap.get(id))
+    .filter((s): s is ConstitutionSectionInfo => !!s);
+
+  function sectionChipLabel(s: ConstitutionSectionInfo): string {
+    const num = s.section_num || s.section_key || "";
+    const title = s.section_title || s.title || "";
+    const artLabel = s.article_title
+      ? `Art. ${s.article_num} – ${s.article_title}`
+      : s.article_num != null
+        ? `Art. ${s.article_num}`
+        : "";
+    if (artLabel && title) return `${artLabel}, §${num} ${title}`;
+    if (artLabel) return `${artLabel}, §${num}`;
+    if (title) return `§${num} ${title}`;
+    return `§${num}`;
+  }
+
+  function sectionChipHref(s: ConstitutionSectionInfo): string {
+    const fragment = s.anchor || s.id;
+    return fragment ? `/constitution#${fragment}` : "/constitution";
+  }
 
   return (
     <div className="h-screen flex flex-col bg-[var(--paper-bg)] text-[var(--ink)] overflow-hidden">
@@ -509,6 +558,36 @@ export default function MeetingMinutesPage() {
                       teams={noTeams}
                       variant="against"
                     />
+                  </div>
+                )}
+
+                {/* Proposal metadata chips */}
+                {selectedSlide.category !== "admin" &&
+                  (selectedSlide.proposed_by || selectedSlide.effective_date || linkedSections.length > 0) && (
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {selectedSlide.proposed_by && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold border-2 border-[#111827] rounded bg-[var(--card-surface)] text-[var(--ink)] shadow-[2px_2px_0_#000]">
+                        <span className="text-[var(--ink)]/50 uppercase tracking-wide text-[10px]">Proposed by</span>
+                        {selectedSlide.proposed_by}
+                      </span>
+                    )}
+                    {selectedSlide.effective_date && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold border-2 border-[#111827] rounded bg-[var(--card-surface)] text-[var(--ink)] shadow-[2px_2px_0_#000]">
+                        <span className="text-[var(--ink)]/50 uppercase tracking-wide text-[10px]">Effective</span>
+                        {selectedSlide.effective_date}
+                      </span>
+                    )}
+                    {linkedSections.map((sec) => (
+                      <a
+                        key={sec.id}
+                        href={sectionChipHref(sec)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold border-2 border-[#1D4ED8] rounded bg-[var(--card-surface)] text-[#1D4ED8] shadow-[2px_2px_0_#000] hover:underline"
+                      >
+                        {sectionChipLabel(sec)} ↗
+                      </a>
+                    ))}
                   </div>
                 )}
 

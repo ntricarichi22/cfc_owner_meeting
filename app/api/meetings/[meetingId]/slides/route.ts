@@ -9,26 +9,23 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
   const { meetingId } = await params;
   const sb = getSupabaseServer();
 
-  const [agendaItemsRes, proposalsRes] = await Promise.all([
-    sb
-      .from("agenda_items")
-      .select("id, title, category, order_index")
-      .eq("meeting_id", meetingId)
-      .order("order_index"),
-    sb
-      .from("proposals")
-      .select("id, agenda_item_id, title, status, summary")
-      .eq("meeting_id", meetingId),
-  ]);
+  // Primary source: proposals ordered by their own order_index, matching the live meeting carousel.
+  // This ensures admin + proposal slides appear in the correct order, using the real proposal data.
+  const proposalsRes = await sb
+    .from("proposals")
+    .select("id, title, order_index, proposal_type, proposed_by, effective_date, summary, article_sections, status, created_at")
+    .eq("meeting_id", meetingId)
+    .order("order_index")
+    .order("created_at");
 
-  if (agendaItemsRes.error)
-    return jsonError(500, "Supabase error", agendaItemsRes.error.message, agendaItemsRes.error.code);
   if (proposalsRes.error)
     return jsonError(500, "Supabase error", proposalsRes.error.message, proposalsRes.error.code);
 
+  const proposals = proposalsRes.data || [];
+  const proposalIds = proposals.map((p) => p.id);
+
   // Fetch vote sessions by proposal_id (not meeting_id) so sessions without meeting_id set
   // are still found — a session's meeting_id may be NULL if created before the column existed.
-  const proposalIds = (proposalsRes.data || []).map((p) => p.id);
   const voteSessionsRes = proposalIds.length > 0
     ? await sb
         .from("proposal_vote_sessions")
@@ -52,30 +49,27 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
     if (!votesRes.error) votes = votesRes.data || [];
   }
 
-  const proposals = proposalsRes.data || [];
-
-  const slides = (agendaItemsRes.data || []).map((item) => {
-    const proposal = proposals.find((p) => p.agenda_item_id === item.id) ?? null;
-    const voteSession = proposal
-      ? voteSessions.find((v) => v.proposal_id === proposal.id) ?? null
-      : null;
+  const slides = proposals.map((p) => {
+    const voteSession = voteSessions.find((v) => v.proposal_id === p.id) ?? null;
     const slideVotes = voteSession
       ? votes.filter((v) => v.proposal_version_id === voteSession.proposal_version_id)
       : [];
 
     return {
-      id: item.id,
-      order_index: item.order_index,
-      title: item.title,
-      category: item.category,
-      proposal: proposal
-        ? {
-            id: proposal.id,
-            title: proposal.title,
-            status: proposal.status,
-            summary: proposal.summary,
-          }
-        : null,
+      id: p.id,
+      order_index: p.order_index,
+      title: p.title,
+      // Map proposal_type to category so badge logic works ('admin' → admin badge, else proposal)
+      category: p.proposal_type ?? "proposal",
+      proposed_by: p.proposed_by ?? null,
+      effective_date: p.effective_date ?? null,
+      article_sections: (p.article_sections as string[] | null) ?? [],
+      proposal: {
+        id: p.id,
+        title: p.title,
+        status: p.status,
+        summary: p.summary,
+      },
       voteSession: voteSession
         ? {
             yes_count: voteSession.yes_count,
