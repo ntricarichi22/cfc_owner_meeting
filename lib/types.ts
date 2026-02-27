@@ -5,6 +5,7 @@ export interface Meeting {
   status: "draft" | "active" | "ended" | "finalized";
   locked: boolean;
   created_at: string;
+  current_slide_index?: number;
   // Legacy fields for backward compatibility with existing pages
   league_id?: string;
   club_year?: number;
