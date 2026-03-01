@@ -25,6 +25,7 @@ interface SlideProposal {
   title: string;
   status: string;
   summary: string | null;
+  commissioner_notes?: string | null;
 }
 
 interface Slide {
@@ -62,13 +63,16 @@ interface ConstitutionSectionInfo {
 
 /* ---------- Helpers ---------- */
 
-type SlideBadge = "approved" | "rejected" | "tabled" | "admin" | null;
+type SlideBadge = "approved" | "approved_with_mods" | "rejected" | "tabled" | "admin" | null;
 
 function getSlideBadge(slide: Slide): SlideBadge {
   // Admin slides always get the Admin badge regardless of any other fields.
   if (slide.category === "admin") return "admin";
   // For proposal slides, the tallied vote session is the authoritative source of truth.
   if (slide.voteSession?.status === "tallied") {
+    if (slide.voteSession.passed && slide.proposal?.commissioner_notes) {
+      return "approved_with_mods";
+    }
     return slide.voteSession.passed ? "approved" : "rejected";
   }
   return null;
@@ -143,11 +147,13 @@ function SlideBadgeChip({ type, selected = false }: { type: SlideBadge; selected
   }
   const styles: Record<string, string> = {
     approved: "bg-[#16A34A] text-white border border-[#111827]",
+    approved_with_mods: "bg-[#16A34A] text-white border border-[#111827]",
     rejected: "bg-[#DC2626] text-white border border-[#111827]",
     tabled: "bg-[#D97706] text-white border border-[#111827]",
   };
   const labels: Record<string, string> = {
     approved: "APPROVED",
+    approved_with_mods: "APPROVED WITH MODS",
     rejected: "REJECTED",
     tabled: "TABLED",
   };

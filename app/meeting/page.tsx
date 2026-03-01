@@ -716,7 +716,7 @@ export default function MeetingOwnerPage() {
                           onClick={() => setShowVotingModal(true)}
                           className="px-5 py-3 font-black uppercase tracking-wide text-base text-white bg-[#16A34A] border-4 border-[#111111] shadow-[6px_6px_0_#111111] rounded-xl transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5"
                         >
-                          APPROVED
+                          {proposal?.commissioner_notes ? "APPROVED WITH MODS" : "APPROVED"}
                         </button>
                       ) : (
                         <button
@@ -903,6 +903,14 @@ export default function MeetingOwnerPage() {
           proposalVersionId={activeVersion.id}
           isCommissioner={isCommissioner}
           proposalTitle={proposal?.title || "Current proposal"}
+          proposalId={proposal?.id}
+          commissionerNotes={proposal?.commissioner_notes}
+          onNotesUpdate={(notes) => {
+            if (!proposal) return;
+            setProposals((prev) =>
+              prev.map((p) => (p.id === proposal.id ? { ...p, commissioner_notes: notes } : p))
+            );
+          }}
           onClose={() => {
             const versionId = activeVersion.id;
             const existing = voteStateByVersion.current.get(versionId);

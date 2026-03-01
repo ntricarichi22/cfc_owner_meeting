@@ -2,6 +2,20 @@ import { NextRequest } from "next/server";
 import { jsonError, getCurrentTeamSession } from "@/lib/api";
 import { getSupabaseServer } from "@/lib/supabase-server";
 
+type ProposalRow = {
+  id: string;
+  title: string;
+  order_index: number;
+  proposal_type: string | null;
+  proposed_by: string | null;
+  effective_date: string | null;
+  summary: string | null;
+  article_sections: unknown;
+  status: string;
+  commissioner_notes: string | null;
+  created_at: string;
+};
+
 export async function GET(_: NextRequest, { params }: { params: Promise<{ meetingId: string }> }) {
   const auth = await getCurrentTeamSession().catch(() => null);
   if (!auth) return jsonError(401, "Unauthorized");
@@ -13,7 +27,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
   // This ensures admin + proposal slides appear in the correct order, using the real proposal data.
   const proposalsRes = await sb
     .from("proposals")
-    .select("id, title, order_index, proposal_type, proposed_by, effective_date, summary, article_sections, status, created_at")
+    .select("id, title, order_index, proposal_type, proposed_by, effective_date, summary, article_sections, status, commissioner_notes, created_at")
     .eq("meeting_id", meetingId)
     .order("order_index")
     .order("created_at");
@@ -21,7 +35,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
   if (proposalsRes.error)
     return jsonError(500, "Supabase error", proposalsRes.error.message, proposalsRes.error.code);
 
-  const proposals = proposalsRes.data || [];
+  const proposals = (proposalsRes.data || []) as ProposalRow[];
   const proposalIds = proposals.map((p) => p.id);
 
   // Fetch vote sessions by proposal_id (not meeting_id) so sessions without meeting_id set
@@ -69,6 +83,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
         title: p.title,
         status: p.status,
         summary: p.summary,
+        commissioner_notes: p.commissioner_notes,
       },
       voteSession: voteSession
         ? {
