@@ -51,6 +51,7 @@ export interface Proposal {
   pros: string | null;
   cons: string | null;
   article_sections: string[] | null;
+  commissioner_notes?: string | null;
 }
 
 export interface ProposalVersion {

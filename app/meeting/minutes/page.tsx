@@ -25,6 +25,7 @@ interface SlideProposal {
   title: string;
   status: string;
   summary: string | null;
+  commissioner_notes?: string | null;
 }
 
 interface Slide {
@@ -62,13 +63,16 @@ interface ConstitutionSectionInfo {
 
 /* ---------- Helpers ---------- */
 
-type SlideBadge = "approved" | "rejected" | "tabled" | "admin" | null;
+type SlideBadge = "approved" | "approved_with_mods" | "rejected" | "tabled" | "admin" | null;
 
 function getSlideBadge(slide: Slide): SlideBadge {
   // Admin slides always get the Admin badge regardless of any other fields.
   if (slide.category === "admin") return "admin";
   // For proposal slides, the tallied vote session is the authoritative source of truth.
   if (slide.voteSession?.status === "tallied") {
+    if (slide.voteSession.passed && slide.proposal?.commissioner_notes) {
+      return "approved_with_mods";
+    }
     return slide.voteSession.passed ? "approved" : "rejected";
   }
   return null;
@@ -115,6 +119,18 @@ function parseSlideNotes(checklist: string): Record<string, string> {
   return {};
 }
 
+function parseCommissionerNotes(checklist: string): Record<string, string> {
+  try {
+    const parsed = JSON.parse(checklist);
+    if (parsed && typeof parsed === "object" && parsed.commissioner_notes) {
+      return parsed.commissioner_notes as Record<string, string>;
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
 function formatEndTime(ended_at: string): string {
   const d = new Date(ended_at);
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
@@ -143,11 +159,13 @@ function SlideBadgeChip({ type, selected = false }: { type: SlideBadge; selected
   }
   const styles: Record<string, string> = {
     approved: "bg-[#16A34A] text-white border border-[#111827]",
+    approved_with_mods: "bg-[#16A34A] text-white border border-[#111827]",
     rejected: "bg-[#DC2626] text-white border border-[#111827]",
     tabled: "bg-[#D97706] text-white border border-[#111827]",
   };
   const labels: Record<string, string> = {
     approved: "APPROVED",
+    approved_with_mods: "APPROVED WITH MODS",
     rejected: "REJECTED",
     tabled: "TABLED",
   };
@@ -249,6 +267,7 @@ export default function MeetingMinutesPage() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [selectedSlide, setSelectedSlide] = useState<Slide | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [commissionerNotes, setCommissionerNotes] = useState<Record<string, string>>({});
   const [transcript, setTranscript] = useState<string>("");
   const [showTranscript, setShowTranscript] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
@@ -257,12 +276,17 @@ export default function MeetingMinutesPage() {
   const [constitutionSections, setConstitutionSections] = useState<ConstitutionSectionInfo[]>([]);
 
   const notesRef = useRef<Record<string, string>>({});
+  const commissionerNotesRef = useRef<Record<string, string>>({});
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Keep ref in sync with state for closures
+  // Keep refs in sync with state for closures
   useEffect(() => {
     notesRef.current = notes;
   }, [notes]);
+
+  useEffect(() => {
+    commissionerNotesRef.current = commissionerNotes;
+  }, [commissionerNotes]);
 
   // Load constitution sections once for chip resolution
   useEffect(() => {
@@ -291,19 +315,30 @@ export default function MeetingMinutesPage() {
         setMeeting(m);
       }
 
-      if (slidesRes.ok) {
-        const s = await slidesRes.json();
-        const slideList: Slide[] = s.slides || [];
-        setSlides(slideList);
-        if (slideList.length > 0) setSelectedSlide(slideList[0]);
-      }
-
+      let cnMap: Record<string, string> = {};
       if (minutesRes.ok) {
         const m = await minutesRes.json();
         const parsed = parseSlideNotes(m?.checklist_markdown || "");
         setNotes(parsed);
         notesRef.current = parsed;
         setTranscript(m?.minutes_markdown || "");
+        cnMap = parseCommissionerNotes(m?.checklist_markdown || "");
+        setCommissionerNotes(cnMap);
+        commissionerNotesRef.current = cnMap;
+      }
+
+      if (slidesRes.ok) {
+        const s = await slidesRes.json();
+        const slideList: Slide[] = s.slides || [];
+        // Augment slides with commissioner_notes from meeting_minutes checklist
+        const augmented = slideList.map((slide) => ({
+          ...slide,
+          proposal: slide.proposal
+            ? { ...slide.proposal, commissioner_notes: cnMap[slide.proposal.id] ?? null }
+            : null,
+        }));
+        setSlides(augmented);
+        if (augmented.length > 0) setSelectedSlide(augmented[0]);
       }
     };
 
@@ -328,7 +363,10 @@ export default function MeetingMinutesPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          checklist_markdown: JSON.stringify({ slide_notes: updatedNotes }),
+          checklist_markdown: JSON.stringify({
+            slide_notes: updatedNotes,
+            commissioner_notes: commissionerNotesRef.current,
+          }),
         }),
       });
       if (res.ok) {

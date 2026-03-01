@@ -16,11 +16,19 @@ export default function VotingModal({
   proposalVersionId,
   isCommissioner,
   proposalTitle,
+  proposalId,
+  meetingId,
+  commissionerNotes,
+  onNotesUpdate,
   onClose,
 }: {
   proposalVersionId: string;
   isCommissioner: boolean;
   proposalTitle: string;
+  proposalId?: string;
+  meetingId?: string;
+  commissionerNotes?: string | null;
+  onNotesUpdate?: (notes: string) => void;
   onClose: () => void;
 }) {
   const [data, setData] = useState<VoteResponse>({ status: "not_open" });
@@ -28,12 +36,21 @@ export default function VotingModal({
   const [tallyError, setTallyError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [tallying, setTallying] = useState(false);
+  const [notes, setNotes] = useState(commissionerNotes ?? "");
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [notesSaved, setNotesSaved] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  // Sync notes when commissionerNotes prop changes (e.g. on re-open)
+  useEffect(() => {
+    setNotes(commissionerNotes ?? "");
+  }, [commissionerNotes]);
 
   const load = useCallback(async () => {
     if (!proposalVersionId) return;
@@ -114,6 +131,51 @@ export default function VotingModal({
     }
   };
 
+  const handleSaveNotes = async () => {
+    if (!proposalId || !meetingId || notesSaving) return;
+    setNotesError(null);
+    setNotesSaving(true);
+    setNotesSaved(false);
+    try {
+      // 1. Load current checklist to preserve existing slide_notes
+      const getRes = await fetch(`/api/meetings/${meetingId}/minutes`);
+      let checklist: Record<string, unknown> = {};
+      if (getRes.ok) {
+        const minutesData = await getRes.json().catch(() => null);
+        if (minutesData?.checklist_markdown) {
+          try { checklist = JSON.parse(minutesData.checklist_markdown); } catch { checklist = {}; }
+        }
+      }
+
+      // 2. Update commissioner_notes map within the checklist JSON
+      const commNotes = (checklist.commissioner_notes as Record<string, string>) || {};
+      if (notes.trim()) {
+        commNotes[proposalId] = notes;
+      } else {
+        delete commNotes[proposalId];
+      }
+      checklist.commissioner_notes = commNotes;
+
+      // 3. Save back via the existing meeting minutes PATCH endpoint
+      const patchRes = await fetch(`/api/meetings/${meetingId}/minutes`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checklist_markdown: JSON.stringify(checklist) }),
+      });
+      const body = await patchRes.json().catch(() => null);
+      if (!patchRes.ok) {
+        setNotesError(body?.error || "Failed to save notes");
+        return;
+      }
+      setNotesSaved(true);
+      onNotesUpdate?.(notes);
+    } catch {
+      setNotesError("Network error. Please try again.");
+    } finally {
+      setNotesSaving(false);
+    }
+  };
+
   const hasVoted = !!data.myVote;
   const isTallied = data.status === "tallied";
   const isVotingActive = data.status === "open" || data.status === "closed";
@@ -178,6 +240,33 @@ export default function VotingModal({
                       </span>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Commissioner Notes — only visible to the commissioner */}
+            {isCommissioner && proposalId && (
+              <div className="text-left space-y-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[rgba(11,11,15,0.65)]">
+                  Commissioner Notes / Approved Modifications
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => { setNotes(e.target.value); setNotesSaved(false); }}
+                  rows={3}
+                  placeholder="Add notes or modification details…"
+                  className="w-full rounded-[var(--radius)] border-[var(--border-width)] border-[var(--border)] bg-[var(--paper-bg)] px-3 py-2 text-sm text-[var(--ink)] placeholder-[rgba(11,11,15,0.4)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--accent-green)]"
+                />
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleSaveNotes}
+                    disabled={notesSaving}
+                    className="px-4 py-1.5 text-xs font-semibold rounded-[var(--radius)] bg-[var(--accent-green)] text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
+                  >
+                    {notesSaving ? "Saving…" : "Save Notes"}
+                  </button>
+                  {notesSaved && <span className="text-xs text-[var(--accent-green)]">Saved ✓</span>}
+                  {notesError && <span className="text-xs text-[var(--accent-red)]">{notesError}</span>}
                 </div>
               </div>
             )}
@@ -313,3 +402,4 @@ export default function VotingModal({
     </div>
   );
 }
+

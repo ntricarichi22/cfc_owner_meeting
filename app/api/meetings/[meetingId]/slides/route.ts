@@ -2,6 +2,19 @@ import { NextRequest } from "next/server";
 import { jsonError, getCurrentTeamSession } from "@/lib/api";
 import { getSupabaseServer } from "@/lib/supabase-server";
 
+type ProposalRow = {
+  id: string;
+  title: string;
+  order_index: number;
+  proposal_type: string | null;
+  proposed_by: string | null;
+  effective_date: string | null;
+  summary: string | null;
+  article_sections: unknown;
+  status: string;
+  created_at: string;
+};
+
 export async function GET(_: NextRequest, { params }: { params: Promise<{ meetingId: string }> }) {
   const auth = await getCurrentTeamSession().catch(() => null);
   if (!auth) return jsonError(401, "Unauthorized");
@@ -21,7 +34,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
   if (proposalsRes.error)
     return jsonError(500, "Supabase error", proposalsRes.error.message, proposalsRes.error.code);
 
-  const proposals = proposalsRes.data || [];
+  const proposals = (proposalsRes.data || []) as ProposalRow[];
   const proposalIds = proposals.map((p) => p.id);
 
   // Fetch vote sessions by proposal_id (not meeting_id) so sessions without meeting_id set
