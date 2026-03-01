@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Nav from "@/components/Nav";
 import RichTextViewer from "@/components/RichTextViewer";
@@ -168,6 +168,8 @@ export default function MeetingOwnerPage() {
   const [startVotingError, setStartVotingError] = useState<string | null>(null);
   const [voteSessionStatus, setVoteSessionStatus] = useState<string>("not_open");
   const [voteSessionPassed, setVoteSessionPassed] = useState<boolean | null>(null);
+  const userDismissedVoting = useRef(false);
+  const prevVoteStatus = useRef("not_open");
 
   const canSubmitAmendment = session?.team_name === COMMISSIONER_TEAM_NAME;
 
@@ -332,6 +334,11 @@ export default function MeetingOwnerPage() {
   }, [copyMessage]);
 
   useEffect(() => {
+    userDismissedVoting.current = false;
+    prevVoteStatus.current = "not_open";
+  }, [activeVersion?.id]);
+
+  useEffect(() => {
     if (!activeVersion?.id) {
       setShowVotingModal(false);
       setVoteSessionStatus("not_open");
@@ -355,10 +362,19 @@ export default function MeetingOwnerPage() {
         const status = String(data?.status ?? "not_open");
         setVoteSessionStatus(status);
         setVoteSessionPassed(data?.passed ?? null);
+        // Auto-open modal when voting becomes open (if not dismissed by user)
+        if (status === "open" && prevVoteStatus.current !== "open" && !userDismissedVoting.current) {
+          setShowVotingModal(true);
+        }
+        // Auto-open modal when voting is tallied (always show results)
+        if (status === "tallied" && prevVoteStatus.current !== "tallied") {
+          setShowVotingModal(true);
+        }
         // Close modal automatically only when voting is reset to not_open
         if (status === "not_open") {
           setShowVotingModal(false);
         }
+        prevVoteStatus.current = status;
       } catch {
         // ignore voting poll errors
       }
@@ -696,7 +712,7 @@ export default function MeetingOwnerPage() {
                   ) : (
                     <div className="shrink-0 flex flex-col items-end gap-1">
                       <button
-                        onClick={() => setShowVotingModal(true)}
+                        onClick={() => { userDismissedVoting.current = false; setShowVotingModal(true); }}
                         disabled={voteSessionStatus !== "open" || !!meeting?.locked}
                         className="px-5 py-3 font-black uppercase tracking-wide text-xl text-white bg-[#BF8F00] border-4 border-[#111111] shadow-[6px_6px_0_#111111] rounded-xl transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0"
                       >
@@ -847,7 +863,7 @@ export default function MeetingOwnerPage() {
           proposalVersionId={activeVersion.id}
           isCommissioner={isCommissioner}
           proposalTitle={proposal?.title || "Current proposal"}
-          onClose={() => setShowVotingModal(false)}
+          onClose={() => { userDismissedVoting.current = true; setShowVotingModal(false); }}
         />
       )}
 
