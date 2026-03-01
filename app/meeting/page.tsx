@@ -168,8 +168,9 @@ export default function MeetingOwnerPage() {
   const [startVotingError, setStartVotingError] = useState<string | null>(null);
   const [voteSessionStatus, setVoteSessionStatus] = useState<string>("not_open");
   const [voteSessionPassed, setVoteSessionPassed] = useState<boolean | null>(null);
-  const userDismissedVoting = useRef(false);
-  const prevVoteStatus = useRef("not_open");
+  // Per-version-id state so navigating away and back never causes spurious modal re-opens.
+  const voteStateByVersion = useRef<Map<string, { prevStatus: string; dismissed: boolean; tallyShown: boolean }>>(new Map());
+  const defaultVoteState = { prevStatus: "not_open", dismissed: false, tallyShown: false };
 
   const canSubmitAmendment = session?.team_name === COMMISSIONER_TEAM_NAME;
 
@@ -334,11 +335,6 @@ export default function MeetingOwnerPage() {
   }, [copyMessage]);
 
   useEffect(() => {
-    userDismissedVoting.current = false;
-    prevVoteStatus.current = "not_open";
-  }, [activeVersion?.id]);
-
-  useEffect(() => {
     if (!activeVersion?.id) {
       setShowVotingModal(false);
       setVoteSessionStatus("not_open");
@@ -354,27 +350,38 @@ export default function MeetingOwnerPage() {
       return;
     }
 
+    const versionId = activeVersion.id;
+
     const pollVoting = async () => {
       try {
-        const res = await fetch(`/api/votes?proposalVersionId=${activeVersion.id}`);
+        const res = await fetch(`/api/votes?proposalVersionId=${versionId}`);
         if (!res.ok) return;
         const data = await res.json();
         const status = String(data?.status ?? "not_open");
         setVoteSessionStatus(status);
         setVoteSessionPassed(data?.passed ?? null);
-        // Auto-open modal when voting becomes open (if not dismissed by user)
-        if (status === "open" && prevVoteStatus.current !== "open" && !userDismissedVoting.current) {
+
+        // Read last-known state for this version (default: never seen, not dismissed)
+        const vs = voteStateByVersion.current.get(versionId) ?? defaultVoteState;
+        let nextVs = { ...vs, prevStatus: status };
+
+        // Auto-open when voting TRANSITIONS to open and user hasn't dismissed for this version
+        if (status === "open" && vs.prevStatus !== "open" && !vs.dismissed) {
           setShowVotingModal(true);
         }
-        // Auto-open modal when voting is tallied (always show results)
-        if (status === "tallied" && prevVoteStatus.current !== "tallied") {
+
+        // Auto-open when voting TRANSITIONS to tallied — show results once per version
+        if (status === "tallied" && !vs.tallyShown) {
+          nextVs = { ...nextVs, tallyShown: true };
           setShowVotingModal(true);
         }
-        // Close modal automatically only when voting is reset to not_open
+
+        // Close modal when voting resets to not_open
         if (status === "not_open") {
           setShowVotingModal(false);
         }
-        prevVoteStatus.current = status;
+
+        voteStateByVersion.current.set(versionId, nextVs);
       } catch {
         // ignore voting poll errors
       }
@@ -712,7 +719,13 @@ export default function MeetingOwnerPage() {
                   ) : (
                     <div className="shrink-0 flex flex-col items-end gap-1">
                       <button
-                        onClick={() => { userDismissedVoting.current = false; setShowVotingModal(true); }}
+                        onClick={() => {
+                          if (activeVersion?.id) {
+                            const vs = voteStateByVersion.current.get(activeVersion.id) ?? defaultVoteState;
+                            voteStateByVersion.current.set(activeVersion.id, { ...vs, dismissed: false });
+                          }
+                          setShowVotingModal(true);
+                        }}
                         disabled={voteSessionStatus !== "open" || !!meeting?.locked}
                         className="px-5 py-3 font-black uppercase tracking-wide text-xl text-white bg-[#BF8F00] border-4 border-[#111111] shadow-[6px_6px_0_#111111] rounded-xl transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0"
                       >
@@ -863,7 +876,12 @@ export default function MeetingOwnerPage() {
           proposalVersionId={activeVersion.id}
           isCommissioner={isCommissioner}
           proposalTitle={proposal?.title || "Current proposal"}
-          onClose={() => { userDismissedVoting.current = true; setShowVotingModal(false); }}
+          onClose={() => {
+            const versionId = activeVersion.id;
+            const vs = voteStateByVersion.current.get(versionId) ?? defaultVoteState;
+            voteStateByVersion.current.set(versionId, { ...vs, dismissed: true });
+            setShowVotingModal(false);
+          }}
         />
       )}
 
