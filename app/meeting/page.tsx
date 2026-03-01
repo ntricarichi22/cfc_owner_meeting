@@ -188,6 +188,10 @@ export default function MeetingOwnerPage() {
     : Math.min(parsedSlide, maxSlide);
   const isClosingSlide = slideCount > 1 && currentSlide === slideCount - 1;
   const proposal = currentSlide > 0 && !isClosingSlide ? sortedProposals[currentSlide - 1] ?? null : null;
+  // Count only non-admin proposals up to and including the current slide position
+  const proposalNumber = currentSlide > 0 && !isClosingSlide
+    ? sortedProposals.slice(0, currentSlide).filter((p) => (p.proposal_type || "proposal") !== "admin").length
+    : 0;
   const activeVersion = proposal?.proposal_versions?.find((v) => v.is_active) ?? null;
 
   const summaryText = summaryWithoutConstitutionLinks(proposal?.summary);
@@ -690,7 +694,7 @@ export default function MeetingOwnerPage() {
                       className="text-2xl md:text-3xl lg:text-5xl font-black uppercase leading-none tracking-tight text-[#111111]"
                       style={{ fontFamily: "var(--font-bebas, 'Bebas Neue', Impact, 'Arial Narrow', sans-serif)" }}
                     >
-                      Proposal #{currentSlide}:&nbsp;{proposal?.title || "Untitled Proposal"}
+                      Proposal #{proposalNumber}:&nbsp;{proposal?.title || "Untitled Proposal"}
                     </h1>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-[#FF3B30] text-white border-2 border-[#111111] shadow-[3px_3px_0_#111111]">
