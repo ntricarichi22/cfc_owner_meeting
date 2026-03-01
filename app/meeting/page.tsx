@@ -170,7 +170,6 @@ export default function MeetingOwnerPage() {
   const [voteSessionPassed, setVoteSessionPassed] = useState<boolean | null>(null);
   // Per-version-id state so navigating away and back never causes spurious modal re-opens.
   const voteStateByVersion = useRef<Map<string, { prevStatus: string; dismissed: boolean; tallyShown: boolean }>>(new Map());
-  const defaultVoteState = { prevStatus: "not_open", dismissed: false, tallyShown: false };
 
   const canSubmitAmendment = session?.team_name === COMMISSIONER_TEAM_NAME;
 
@@ -352,6 +351,9 @@ export default function MeetingOwnerPage() {
 
     const versionId = activeVersion.id;
 
+    // Close the modal whenever we land on a new version (slide navigation or version promotion).
+    setShowVotingModal(false);
+
     const pollVoting = async () => {
       try {
         const res = await fetch(`/api/votes?proposalVersionId=${versionId}`);
@@ -361,22 +363,36 @@ export default function MeetingOwnerPage() {
         setVoteSessionStatus(status);
         setVoteSessionPassed(data?.passed ?? null);
 
-        // Read last-known state for this version (default: never seen, not dismissed)
-        const vs = voteStateByVersion.current.get(versionId) ?? defaultVoteState;
-        let nextVs = { ...vs, prevStatus: status };
+        const existing = voteStateByVersion.current.get(versionId);
 
-        // Auto-open when voting TRANSITIONS to open and user hasn't dismissed for this version
-        if (status === "open" && vs.prevStatus !== "open" && !vs.dismissed) {
+        if (existing === undefined) {
+          // First poll for this version: seed state without opening the modal.
+          // Auto-opens must only fire on real-time transitions observed in subsequent polls,
+          // not from discovering an already-open/tallied status on page load or slide navigation.
+          voteStateByVersion.current.set(versionId, {
+            prevStatus: status,
+            dismissed: false,
+            // If already tallied on first encounter, mark as shown so it never auto-opens.
+            tallyShown: status === "tallied",
+          });
+          return;
+        }
+
+        // Subsequent polls — only act on real status transitions.
+        let nextVs = { ...existing, prevStatus: status };
+
+        // Auto-open when voting transitions to open and user hasn't dismissed for this version.
+        if (status === "open" && existing.prevStatus !== "open" && !existing.dismissed) {
           setShowVotingModal(true);
         }
 
-        // Auto-open when voting TRANSITIONS to tallied — show results once per version
-        if (status === "tallied" && !vs.tallyShown) {
+        // Auto-open when voting transitions to tallied — show results exactly once per version.
+        if (status === "tallied" && !existing.tallyShown) {
           nextVs = { ...nextVs, tallyShown: true };
           setShowVotingModal(true);
         }
 
-        // Close modal when voting resets to not_open
+        // Close modal when voting resets to not_open.
         if (status === "not_open") {
           setShowVotingModal(false);
         }
@@ -721,8 +737,12 @@ export default function MeetingOwnerPage() {
                       <button
                         onClick={() => {
                           if (activeVersion?.id) {
-                            const vs = voteStateByVersion.current.get(activeVersion.id) ?? defaultVoteState;
-                            voteStateByVersion.current.set(activeVersion.id, { ...vs, dismissed: false });
+                            const existing = voteStateByVersion.current.get(activeVersion.id);
+                            voteStateByVersion.current.set(activeVersion.id, {
+                              prevStatus: existing?.prevStatus ?? "not_open",
+                              dismissed: false,
+                              tallyShown: existing?.tallyShown ?? false,
+                            });
                           }
                           setShowVotingModal(true);
                         }}
@@ -878,8 +898,12 @@ export default function MeetingOwnerPage() {
           proposalTitle={proposal?.title || "Current proposal"}
           onClose={() => {
             const versionId = activeVersion.id;
-            const vs = voteStateByVersion.current.get(versionId) ?? defaultVoteState;
-            voteStateByVersion.current.set(versionId, { ...vs, dismissed: true });
+            const existing = voteStateByVersion.current.get(versionId);
+            voteStateByVersion.current.set(versionId, {
+              prevStatus: existing?.prevStatus ?? "not_open",
+              dismissed: true,
+              tallyShown: existing?.tallyShown ?? false,
+            });
             setShowVotingModal(false);
           }}
         />
