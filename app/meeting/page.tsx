@@ -392,8 +392,11 @@ export default function MeetingOwnerPage() {
           setShowVotingModal(true);
         }
 
-        // Close modal when voting resets to not_open.
-        if (status === "not_open") {
+        // Close modal only when voting transitions FROM open back to not_open
+        // (i.e., commissioner explicitly closed voting).  Do NOT close on the
+        // steady-state not_open→not_open case, as that would race with a stale
+        // poll response arriving just after handleStartVoting sets the modal open.
+        if (status === "not_open" && existing.prevStatus === "open") {
           setShowVotingModal(false);
         }
 
