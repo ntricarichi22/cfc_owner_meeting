@@ -17,6 +17,7 @@ export default function VotingModal({
   isCommissioner,
   proposalTitle,
   proposalId,
+  meetingId,
   commissionerNotes,
   onNotesUpdate,
   onClose,
@@ -25,6 +26,7 @@ export default function VotingModal({
   isCommissioner: boolean;
   proposalTitle: string;
   proposalId?: string;
+  meetingId?: string;
   commissionerNotes?: string | null;
   onNotesUpdate?: (notes: string) => void;
   onClose: () => void;
@@ -130,18 +132,38 @@ export default function VotingModal({
   };
 
   const handleSaveNotes = async () => {
-    if (!proposalId || notesSaving) return;
+    if (!proposalId || !meetingId || notesSaving) return;
     setNotesError(null);
     setNotesSaving(true);
     setNotesSaved(false);
     try {
-      const res = await fetch("/api/proposals", {
+      // 1. Load current checklist to preserve existing slide_notes
+      const getRes = await fetch(`/api/meetings/${meetingId}/minutes`);
+      let checklist: Record<string, unknown> = {};
+      if (getRes.ok) {
+        const minutesData = await getRes.json().catch(() => null);
+        if (minutesData?.checklist_markdown) {
+          try { checklist = JSON.parse(minutesData.checklist_markdown); } catch { checklist = {}; }
+        }
+      }
+
+      // 2. Update commissioner_notes map within the checklist JSON
+      const commNotes = (checklist.commissioner_notes as Record<string, string>) || {};
+      if (notes.trim()) {
+        commNotes[proposalId] = notes;
+      } else {
+        delete commNotes[proposalId];
+      }
+      checklist.commissioner_notes = commNotes;
+
+      // 3. Save back via the existing meeting minutes PATCH endpoint
+      const patchRes = await fetch(`/api/meetings/${meetingId}/minutes`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposalId, commissioner_notes: notes }),
+        body: JSON.stringify({ checklist_markdown: JSON.stringify(checklist) }),
       });
-      const body = await res.json().catch(() => null);
-      if (!res.ok) {
+      const body = await patchRes.json().catch(() => null);
+      if (!patchRes.ok) {
         setNotesError(body?.error || "Failed to save notes");
         return;
       }

@@ -46,26 +46,3 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true });
 }
-
-export async function PATCH(req: NextRequest) {
-  const auth = await getCurrentTeamSession().catch(() => null);
-  if (!auth || !isCommissionerTeam(auth.teamSession.team_name)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const { proposalId, commissioner_notes } = await req.json().catch(() => ({}));
-  if (!proposalId) {
-    return NextResponse.json({ error: "proposalId is required" }, { status: 400 });
-  }
-
-  const sb = getSupabaseServer();
-  const { error } = await sb
-    .from("proposals")
-    .update({ commissioner_notes: commissioner_notes ?? null })
-    .eq("id", proposalId);
-  if (error) {
-    return NextResponse.json({ error: "Failed to update commissioner notes" }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
-}

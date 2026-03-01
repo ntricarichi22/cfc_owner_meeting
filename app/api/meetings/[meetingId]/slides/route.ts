@@ -12,7 +12,6 @@ type ProposalRow = {
   summary: string | null;
   article_sections: unknown;
   status: string;
-  commissioner_notes: string | null;
   created_at: string;
 };
 
@@ -27,7 +26,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
   // This ensures admin + proposal slides appear in the correct order, using the real proposal data.
   const proposalsRes = await sb
     .from("proposals")
-    .select("id, title, order_index, proposal_type, proposed_by, effective_date, summary, article_sections, status, commissioner_notes, created_at")
+    .select("id, title, order_index, proposal_type, proposed_by, effective_date, summary, article_sections, status, created_at")
     .eq("meeting_id", meetingId)
     .order("order_index")
     .order("created_at");
@@ -83,7 +82,6 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
         title: p.title,
         status: p.status,
         summary: p.summary,
-        commissioner_notes: p.commissioner_notes,
       },
       voteSession: voteSession
         ? {

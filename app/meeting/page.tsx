@@ -168,6 +168,7 @@ export default function MeetingOwnerPage() {
   const [startVotingError, setStartVotingError] = useState<string | null>(null);
   const [voteSessionStatus, setVoteSessionStatus] = useState<string>("not_open");
   const [voteSessionPassed, setVoteSessionPassed] = useState<boolean | null>(null);
+  const [commissionerNotesMap, setCommissionerNotesMap] = useState<Record<string, string>>({});
   // Per-version-id state so navigating away and back never causes spurious modal re-opens.
   const voteStateByVersion = useRef<Map<string, { prevStatus: string; dismissed: boolean; tallyShown: boolean }>>(new Map());
 
@@ -291,6 +292,24 @@ export default function MeetingOwnerPage() {
     const interval = setInterval(loadMeeting, 5000);
     return () => clearInterval(interval);
   }, [session, loadMeeting]);
+
+  // Load commissioner notes from meeting_minutes.checklist_markdown once per meeting
+  useEffect(() => {
+    const id = meeting?.id;
+    if (!id) return;
+    fetch(`/api/meetings/${id}/minutes`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.checklist_markdown) return;
+        try {
+          const parsed = JSON.parse(data.checklist_markdown);
+          if (parsed?.commissioner_notes && typeof parsed.commissioner_notes === "object") {
+            setCommissionerNotesMap(parsed.commissioner_notes as Record<string, string>);
+          }
+        } catch { /* ignore */ }
+      })
+      .catch(() => {});
+  }, [meeting?.id]);
 
   useEffect(() => {
     if (!session) return;
@@ -716,7 +735,7 @@ export default function MeetingOwnerPage() {
                           onClick={() => setShowVotingModal(true)}
                           className="px-5 py-3 font-black uppercase tracking-wide text-base text-white bg-[#16A34A] border-4 border-[#111111] shadow-[6px_6px_0_#111111] rounded-xl transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5"
                         >
-                          {proposal?.commissioner_notes ? "APPROVED WITH MODS" : "APPROVED"}
+                          {proposal?.id && commissionerNotesMap[proposal.id] ? "APPROVED WITH MODS" : "APPROVED"}
                         </button>
                       ) : (
                         <button
@@ -904,12 +923,11 @@ export default function MeetingOwnerPage() {
           isCommissioner={isCommissioner}
           proposalTitle={proposal?.title || "Current proposal"}
           proposalId={proposal?.id}
-          commissionerNotes={proposal?.commissioner_notes}
+          meetingId={meeting?.id}
+          commissionerNotes={proposal?.id ? (commissionerNotesMap[proposal.id] ?? null) : null}
           onNotesUpdate={(notes) => {
-            if (!proposal) return;
-            setProposals((prev) =>
-              prev.map((p) => (p.id === proposal.id ? { ...p, commissioner_notes: notes } : p))
-            );
+            if (!proposal?.id) return;
+            setCommissionerNotesMap((prev) => ({ ...prev, [proposal.id]: notes }));
           }}
           onClose={() => {
             const versionId = activeVersion.id;
