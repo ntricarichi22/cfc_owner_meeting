@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Nav from "@/components/Nav";
 import RichTextViewer from "@/components/RichTextViewer";
@@ -168,6 +168,8 @@ export default function MeetingOwnerPage() {
   const [startVotingError, setStartVotingError] = useState<string | null>(null);
   const [voteSessionStatus, setVoteSessionStatus] = useState<string>("not_open");
   const [voteSessionPassed, setVoteSessionPassed] = useState<boolean | null>(null);
+  // Per-version-id state so navigating away and back never causes spurious modal re-opens.
+  const voteStateByVersion = useRef<Map<string, { prevStatus: string; dismissed: boolean; tallyShown: boolean }>>(new Map());
 
   const canSubmitAmendment = session?.team_name === COMMISSIONER_TEAM_NAME;
 
@@ -347,18 +349,58 @@ export default function MeetingOwnerPage() {
       return;
     }
 
+    const versionId = activeVersion.id;
+
+    // Close the modal whenever we land on a new version (slide navigation or version promotion).
+    setShowVotingModal(false);
+
     const pollVoting = async () => {
       try {
-        const res = await fetch(`/api/votes?proposalVersionId=${activeVersion.id}`);
+        const res = await fetch(`/api/votes?proposalVersionId=${versionId}`);
         if (!res.ok) return;
         const data = await res.json();
         const status = String(data?.status ?? "not_open");
         setVoteSessionStatus(status);
         setVoteSessionPassed(data?.passed ?? null);
-        // Close modal automatically only when voting is reset to not_open
-        if (status === "not_open") {
+
+        const existing = voteStateByVersion.current.get(versionId);
+
+        if (existing === undefined) {
+          // First poll for this version: seed state without opening the modal.
+          // Auto-opens must only fire on real-time transitions observed in subsequent polls,
+          // not from discovering an already-open/tallied status on page load or slide navigation.
+          voteStateByVersion.current.set(versionId, {
+            prevStatus: status,
+            dismissed: false,
+            // If already tallied on first encounter, mark as shown so it never auto-opens.
+            tallyShown: status === "tallied",
+          });
+          return;
+        }
+
+        // Subsequent polls — only act on real status transitions.
+        let nextVs = { ...existing, prevStatus: status };
+
+        // Auto-open when voting transitions to open and user hasn't dismissed for this version.
+        if (status === "open" && existing.prevStatus !== "open" && !existing.dismissed) {
+          setShowVotingModal(true);
+        }
+
+        // Auto-open when voting transitions to tallied — show results exactly once per version.
+        if (status === "tallied" && !existing.tallyShown) {
+          nextVs = { ...nextVs, tallyShown: true };
+          setShowVotingModal(true);
+        }
+
+        // Close modal only when voting transitions FROM open back to not_open
+        // (i.e., commissioner explicitly closed voting).  Do NOT close on the
+        // steady-state not_open→not_open case, as that would race with a stale
+        // poll response arriving just after handleStartVoting sets the modal open.
+        if (status === "not_open" && existing.prevStatus === "open") {
           setShowVotingModal(false);
         }
+
+        voteStateByVersion.current.set(versionId, nextVs);
       } catch {
         // ignore voting poll errors
       }
@@ -696,7 +738,17 @@ export default function MeetingOwnerPage() {
                   ) : (
                     <div className="shrink-0 flex flex-col items-end gap-1">
                       <button
-                        onClick={() => setShowVotingModal(true)}
+                        onClick={() => {
+                          if (activeVersion?.id) {
+                            const existing = voteStateByVersion.current.get(activeVersion.id);
+                            voteStateByVersion.current.set(activeVersion.id, {
+                              prevStatus: existing?.prevStatus ?? "not_open",
+                              dismissed: false,
+                              tallyShown: existing?.tallyShown ?? false,
+                            });
+                          }
+                          setShowVotingModal(true);
+                        }}
                         disabled={voteSessionStatus !== "open" || !!meeting?.locked}
                         className="px-5 py-3 font-black uppercase tracking-wide text-xl text-white bg-[#BF8F00] border-4 border-[#111111] shadow-[6px_6px_0_#111111] rounded-xl transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0"
                       >
@@ -847,7 +899,16 @@ export default function MeetingOwnerPage() {
           proposalVersionId={activeVersion.id}
           isCommissioner={isCommissioner}
           proposalTitle={proposal?.title || "Current proposal"}
-          onClose={() => setShowVotingModal(false)}
+          onClose={() => {
+            const versionId = activeVersion.id;
+            const existing = voteStateByVersion.current.get(versionId);
+            voteStateByVersion.current.set(versionId, {
+              prevStatus: existing?.prevStatus ?? "not_open",
+              dismissed: true,
+              tallyShown: existing?.tallyShown ?? false,
+            });
+            setShowVotingModal(false);
+          }}
         />
       )}
 

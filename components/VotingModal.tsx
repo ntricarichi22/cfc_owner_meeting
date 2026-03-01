@@ -151,7 +151,7 @@ export default function VotingModal({
             </div>
 
             <h2 className={`text-3xl font-bold tracking-tight ${data.passed ? "text-[var(--accent-green)]" : "text-[var(--accent-red)]"}`}>
-              {data.passed ? "PASSED" : "FAILED"}
+              {data.passed ? "Proposal Passed" : "Proposal Rejected"}
             </h2>
 
             <p className="text-sm text-[rgba(11,11,15,0.7)]">{proposalTitle}</p>
