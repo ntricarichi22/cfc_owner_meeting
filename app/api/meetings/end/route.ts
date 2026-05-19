@@ -87,5 +87,23 @@ export async function POST(req: NextRequest) {
     finalized_at: now,
   });
 
+  // Best-effort: kick off transcript-driven discussion-summary generation.
+  // We do this inline (await) so the result is ready by the time the user lands
+  // on the Minutes Review page. Any failure is logged but non-fatal — meeting
+  // ending must still succeed.
+  try {
+    const origin = req.nextUrl.origin;
+    const cookieHeader = req.headers.get("cookie") ?? "";
+    // fire-and-forget (don't block more than ~30s on AI)
+    await fetch(`${origin}/api/meetings/${meetingId}/discussion-summaries/generate`, {
+      method: "POST",
+      headers: { cookie: cookieHeader },
+    }).catch((err) => {
+      console.warn("[end] discussion-summaries auto-generate failed:", err);
+    });
+  } catch (err) {
+    console.warn("[end] discussion-summaries auto-generate dispatch failed:", err);
+  }
+
   return Response.json({ ok: true, meetingId });
 }

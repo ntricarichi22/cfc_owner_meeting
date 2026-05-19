@@ -39,6 +39,12 @@ interface Slide {
   proposal: SlideProposal | null;
   voteSession: SlideVoteSession | null;
   votes: SlideVote[];
+  /** Plain-text transcript excerpt assigned to this slide (when available). */
+  transcript_excerpt?: string | null;
+  /** Confidence score for the generated discussion summary. */
+  summary_confidence?: "high" | "medium" | "low" | "none" | null;
+  /** Source of the discussion summary: "ai" | "heuristic" | "none". */
+  summary_source?: "ai" | "heuristic" | "none" | null;
 }
 
 interface MeetingInfo {
@@ -420,15 +426,26 @@ export default function MeetingMinutesPage() {
   const selectedBadge = selectedSlide ? getSlideBadge(selectedSlide) : null;
   const yesTeams = selectedSlide?.votes.filter((v) => v.vote === "yes").map((v) => v.team_name) ?? [];
   const noTeams = selectedSlide?.votes.filter((v) => v.vote === "no").map((v) => v.team_name) ?? [];
-  // Strip HTML from summary before rendering – proposals use a rich-text editor that stores HTML
+  // Strip HTML from summary before rendering – proposals use a rich-text editor that stores HTML,
+  // and transcript-derived summaries are already plain text but we strip defensively.
   const cleanSummary = stripHtml(selectedSlide?.proposal?.summary ?? "");
-  const hasSummary = !!cleanSummary;
+  // A sentinel summary value emitted by the transcript pipeline when no utterances mapped.
+  const NO_DISCUSSION_SENTINEL = "No transcript discussion detected for this slide.";
+  const noDiscussionDetected = cleanSummary === NO_DISCUSSION_SENTINEL;
+  const hasSummary = !!cleanSummary && !noDiscussionDetected;
   const summaryLines = hasSummary
     ? cleanSummary
         .split("\n")
         .map((l) => l.replace(/^[-•*]\s*/, "").trim())
         .filter(Boolean)
     : [];
+  const confidenceLabel: Record<string, string> = {
+    high: "High",
+    medium: "Medium",
+    low: "Low",
+    none: "None",
+  };
+  const summaryConfidence = selectedSlide?.summary_confidence;
   const selectedNotes = selectedSlide ? (notes[selectedSlide.id] ?? "") : "";
 
   // Build constitution section lookup for chip rendering
@@ -667,7 +684,9 @@ export default function MeetingMinutesPage() {
                             />
                           </svg>
                           Confidence:{" "}
-                          <span className="font-black text-[#16A34A]">High</span>
+                          <span className="font-black text-[#16A34A]">
+                            {summaryConfidence ? confidenceLabel[summaryConfidence] ?? "High" : "High"}
+                          </span>
                         </span>
                       )}
                     </div>
@@ -680,6 +699,10 @@ export default function MeetingMinutesPage() {
                           </li>
                         ))}
                       </ul>
+                    ) : noDiscussionDetected ? (
+                      <p className="text-sm text-[var(--ink)]/45 italic">
+                        No transcript discussion detected for this slide.
+                      </p>
                     ) : (
                       <p className="text-sm text-[var(--ink)]/45 italic">
                         No usable transcript discussion was detected for this slide. Upload a Teams transcript to generate discussion summaries.
@@ -748,7 +771,7 @@ export default function MeetingMinutesPage() {
       {/* Transcript modal */}
       {showTranscript && selectedSlide && (
         <TranscriptModal
-          transcript={transcript}
+          transcript={selectedSlide.transcript_excerpt || transcript}
           slideTitle={selectedSlide.title}
           onClose={() => setShowTranscript(false)}
         />
