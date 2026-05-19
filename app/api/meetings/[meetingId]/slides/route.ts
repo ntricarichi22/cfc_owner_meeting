@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { jsonError, getCurrentTeamSession } from "@/lib/api";
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { parseChecklist, type DiscussionSummary } from "@/lib/transcript";
 
 type ProposalRow = {
   id: string;
@@ -62,11 +63,34 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
     if (!votesRes.error) votes = votesRes.data || [];
   }
 
+  // Load any transcript-derived discussion summaries (stored under
+  // meeting_minutes.checklist_markdown JSON). When present, these replace
+  // the proposal.summary in the Minutes Review payload so the page shows
+  // the actual transcript-driven discussion rather than the slide's own text.
+  let discussionSummaries: Record<string, DiscussionSummary> = {};
+  const minutesRes = await sb
+    .from("meeting_minutes")
+    .select("checklist_markdown")
+    .eq("meeting_id", meetingId)
+    .maybeSingle();
+  if (!minutesRes.error && minutesRes.data?.checklist_markdown) {
+    const blob = parseChecklist(minutesRes.data.checklist_markdown);
+    if (blob.discussion_summaries && typeof blob.discussion_summaries === "object") {
+      discussionSummaries = blob.discussion_summaries;
+    }
+  }
+
   const slides = proposals.map((p) => {
     const voteSession = voteSessions.find((v) => v.proposal_id === p.id) ?? null;
     const slideVotes = voteSession
       ? votes.filter((v) => v.proposal_version_id === voteSession.proposal_version_id)
       : [];
+
+    // Prefer the transcript-derived discussion summary when one exists.
+    // Falls back to the proposal's own summary (which may be HTML — the client
+    // strips it before rendering) when no transcript summary has been generated.
+    const generated = discussionSummaries[p.id];
+    const proposalSummary = generated ? generated.summary : p.summary;
 
     return {
       id: p.id,
@@ -81,8 +105,14 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
         id: p.id,
         title: p.title,
         status: p.status,
-        summary: p.summary,
+        summary: proposalSummary,
       },
+      // Per-slide transcript excerpt (plain text) when available, so the
+      // existing "View Transcript Excerpt" modal can show only the discussion
+      // for this slide instead of the entire meeting transcript.
+      transcript_excerpt: generated?.transcript_excerpt ?? null,
+      summary_confidence: generated?.confidence ?? null,
+      summary_source: generated?.source ?? null,
       voteSession: voteSession
         ? {
             yes_count: voteSession.yes_count,
