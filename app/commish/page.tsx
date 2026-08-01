@@ -18,6 +18,7 @@ export default async function CommishToolsPage() {
     { href: "/admin/meeting-builder", label: "Meeting Builder" },
     { href: "/constitution/import", label: "Import Constitution" },
     { href: "/meeting/minutes", label: "Meeting Minutes" },
+    { href: "/meeting/minutes/constitution", label: "Constitution Updates" },
   ];
 
   return (

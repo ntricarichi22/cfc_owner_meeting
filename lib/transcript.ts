@@ -14,6 +14,7 @@
 
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { TRANSCRIPT_MARKDOWN_HEADING } from "@/lib/constants";
+import { callLLM, extractJson, llmProvider } from "@/lib/llm";
 
 /* ------------------------------------------------------------------ *
  * Types
@@ -550,6 +551,82 @@ export function assignUtterancesToSlides(
 }
 
 /* ------------------------------------------------------------------ *
+ * AI transcript segmentation (primary assignment when an LLM is configured)
+ *
+ * The timestamp/keyword assignment above depends on audit-event timing lining
+ * up with the recording header, which is fragile in practice. When an LLM is
+ * available we instead ask it to segment the numbered transcript by agenda
+ * item directly — far more robust for real Teams transcripts.
+ * ------------------------------------------------------------------ */
+
+interface AiSegment {
+  slide: number; // 1-based index into the slides array; 0 = no slide
+  start: number; // first utterance index (0-based, inclusive)
+  end: number;   // last utterance index (0-based, inclusive)
+}
+
+export async function aiAssignUtterancesToSlides(
+  parsed: ParsedTranscript,
+  slides: SlideContext[],
+): Promise<Map<string, Utterance[]> | null> {
+  if (parsed.utterances.length === 0 || slides.length === 0) return null;
+
+  const slideList = slides
+    .map((s, i) => {
+      const context = s.contextText ? ` — ${s.contextText.slice(0, 200)}` : "";
+      return `${i + 1}. [${s.category}] ${s.title}${context}`;
+    })
+    .join("\n");
+
+  const numbered = parsed.utterances
+    .map((u, i) => {
+      const m = Math.floor(u.relativeSeconds / 60);
+      const s = String(u.relativeSeconds % 60).padStart(2, "0");
+      return `#${i} [${m}:${s}] ${u.speaker}: ${u.text}`;
+    })
+    .join("\n");
+
+  const system = [
+    "You segment a fantasy-football league owners' meeting transcript by agenda item.",
+    "You are given the ordered agenda (slides) and the full transcript as numbered utterances.",
+    "Assign each contiguous stretch of the transcript to the agenda item it discusses.",
+    "The meeting generally follows agenda order, but tangents and revisits happen — assign by content, not just position.",
+    "Small talk, logistics, and banter that belong to no agenda item get slide 0.",
+    'Respond with ONLY a JSON array of segments: [{"slide": <agenda number, 0 for none>, "start": <first utterance #>, "end": <last utterance #, inclusive>}].',
+    "Segments must be in transcript order, must not overlap, and together should cover every utterance index.",
+  ].join(" ");
+
+  const user = `Agenda items:\n${slideList}\n\nTranscript (${parsed.utterances.length} utterances):\n${numbered}`;
+
+  const raw = await callLLM(system, user, 4000);
+  const segments = extractJson<AiSegment[]>(raw);
+  if (!segments || !Array.isArray(segments) || segments.length === 0) return null;
+
+  const byProposal = new Map<string, Utterance[]>();
+  for (const s of slides) byProposal.set(s.proposalId, []);
+
+  let assigned = 0;
+  for (const seg of segments) {
+    if (
+      typeof seg?.slide !== "number" || typeof seg?.start !== "number" || typeof seg?.end !== "number"
+    ) continue;
+    if (seg.slide < 1 || seg.slide > slides.length) continue;
+    const proposalId = slides[seg.slide - 1].proposalId;
+    const start = Math.max(0, Math.floor(seg.start));
+    const end = Math.min(parsed.utterances.length - 1, Math.floor(seg.end));
+    for (let i = start; i <= end; i++) {
+      byProposal.get(proposalId)?.push(parsed.utterances[i]);
+      assigned++;
+    }
+  }
+
+  // Sanity check: if the model assigned almost nothing, treat as failure so
+  // the caller can fall back to timestamp/keyword assignment.
+  if (assigned < Math.min(3, parsed.utterances.length)) return null;
+  return byProposal;
+}
+
+/* ------------------------------------------------------------------ *
  * Summary generation (AI preferred, heuristic fallback)
  * ------------------------------------------------------------------ */
 
@@ -588,42 +665,6 @@ function heuristicSummary(slide: SlideContext, utterances: Utterance[]): string 
     ? `Discussion led by ${speakers.join(", ") || "owners"}.`
     : `Owners discussed ${slide.title.toLowerCase()}; speakers: ${speakers.join(", ") || "n/a"}.`;
   return [header, ...lines].join("\n");
-}
-
-interface OpenAIChatMessage {
-  role: "system" | "user";
-  content: string;
-}
-
-async function callOpenAI(messages: OpenAIChatMessage[]): Promise<string | null> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-  try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: 0.2,
-        max_tokens: 400,
-      }),
-    });
-    if (!res.ok) {
-      console.error("[transcript] OpenAI error", res.status, await res.text().catch(() => ""));
-      return null;
-    }
-    const data = await res.json() as { choices?: { message?: { content?: string } }[] };
-    const content = data.choices?.[0]?.message?.content;
-    return typeof content === "string" ? content.trim() : null;
-  } catch (err) {
-    console.error("[transcript] OpenAI fetch failed:", err);
-    return null;
-  }
 }
 
 /**
@@ -665,10 +706,7 @@ export async function generateDiscussionSummary(
     `Transcript excerpt for this slide:\n${excerpt.slice(0, 6000)}`,
   ].filter(Boolean).join("\n\n");
 
-  const aiText = await callOpenAI([
-    { role: "system", content: system },
-    { role: "user", content: user },
-  ]);
+  const aiText = await callLLM(system, user, 600);
 
   const confidence: DiscussionSummary["confidence"] =
     utterances.length >= 8 ? "high"
@@ -725,4 +763,144 @@ export function mergeDiscussionSummaries(
   const blob = parseChecklist(existingChecklistRaw);
   blob.discussion_summaries = summaries;
   return JSON.stringify(blob);
+}
+
+/* ------------------------------------------------------------------ *
+ * End-to-end pipeline: transcript → per-slide summaries → persisted
+ * ------------------------------------------------------------------ */
+
+export interface GenerateSummariesResult {
+  ok: boolean;
+  error?: string;
+  count?: number;
+  utterance_count?: number;
+  assigned_count?: number;
+  assignment_source?: "ai" | "timestamps" | "none";
+  provider?: string | null;
+}
+
+interface ProposalRowForSummaries {
+  id: string;
+  title: string;
+  order_index: number | null;
+  proposal_type: string | null;
+  summary: string | null;
+  created_at: string;
+}
+
+/**
+ * Generate per-slide discussion summaries for a meeting from its uploaded
+ * transcript and persist them under meeting_minutes.checklist_markdown.
+ * Safe to re-run — summaries are regenerated and replaced each time.
+ */
+export async function generateAndStoreSummaries(meetingId: string): Promise<GenerateSummariesResult> {
+  const sb = getSupabaseServer();
+
+  const minutesRes = await sb
+    .from("meeting_minutes")
+    .select("minutes_markdown, checklist_markdown")
+    .eq("meeting_id", meetingId)
+    .maybeSingle();
+  if (minutesRes.error) {
+    console.error("[transcript] meeting_minutes query failed:", minutesRes.error.message);
+    return { ok: false, error: `Supabase error: ${minutesRes.error.message}` };
+  }
+  const transcriptRaw = minutesRes.data?.minutes_markdown ?? "";
+  if (!transcriptRaw.trim()) {
+    return { ok: false, error: "No transcript uploaded for this meeting" };
+  }
+
+  const proposalsRes = await sb
+    .from("proposals")
+    .select("id, title, order_index, proposal_type, summary, created_at")
+    .eq("meeting_id", meetingId)
+    .order("order_index")
+    .order("created_at");
+  if (proposalsRes.error) {
+    return { ok: false, error: `Supabase error: ${proposalsRes.error.message}` };
+  }
+  const proposals = (proposalsRes.data || []) as ProposalRowForSummaries[];
+  if (proposals.length === 0) return { ok: true, count: 0, utterance_count: 0 };
+
+  const voteSessionsRes = await sb
+    .from("proposal_vote_sessions")
+    .select("proposal_id, status, yes_count, no_count, total_count, passed")
+    .in("proposal_id", proposals.map((p) => p.id));
+  const voteSessions = voteSessionsRes.error ? [] : (voteSessionsRes.data || []);
+
+  const parsed = parseTranscript(transcriptRaw);
+  if (parsed.utterances.length === 0) {
+    return { ok: false, error: "Could not parse any utterances from the transcript. Check the file format." };
+  }
+
+  const slides: SlideContext[] = proposals.map((p, idx) => {
+    const vs = voteSessions.find((v) => v.proposal_id === p.id);
+    const voteSummary = vs && vs.status === "tallied"
+      ? `${vs.passed ? "PASSED" : "FAILED"} (YES ${vs.yes_count ?? 0}, NO ${vs.no_count ?? 0}, TOTAL ${vs.total_count ?? 0})`
+      : null;
+    return {
+      proposalId: p.id,
+      orderIndex: p.order_index ?? idx,
+      slideIndex: idx + 1,
+      title: p.title,
+      category: p.proposal_type ?? "proposal",
+      contextText: stripHtmlServer(p.summary ?? ""),
+      voteSummary,
+    };
+  });
+
+  // Primary: AI segmentation. Fallback: audit-event windows + keyword matching.
+  let utterancesByProposal: Map<string, Utterance[]> | null = null;
+  let assignmentSource: GenerateSummariesResult["assignment_source"] = "none";
+
+  if (llmProvider()) {
+    utterancesByProposal = await aiAssignUtterancesToSlides(parsed, slides);
+    if (utterancesByProposal) assignmentSource = "ai";
+  }
+  if (!utterancesByProposal) {
+    const windows = await buildSlideWindowsFromAudit({
+      meetingId,
+      proposalIdsByOrder: proposals.map((p) => p.id),
+      recordingStartMs: parsed.recordingStartMs,
+      recordingEndMs: parsed.recordingEndMs,
+    });
+    utterancesByProposal = assignUtterancesToSlides(parsed, slides, windows).utterancesByProposal;
+    assignmentSource = "timestamps";
+  }
+
+  const assignedCount = Array.from(utterancesByProposal.values()).reduce((n, u) => n + u.length, 0);
+
+  // Generate all per-slide summaries concurrently.
+  const entries = await Promise.all(
+    slides.map(async (slide) => {
+      const utterances = utterancesByProposal!.get(slide.proposalId) ?? [];
+      const summary = await generateDiscussionSummary(slide, utterances);
+      return [slide.proposalId, summary] as const;
+    }),
+  );
+  const summaries: Record<string, DiscussionSummary> = Object.fromEntries(entries);
+
+  // Re-read the checklist just before writing to minimize clobbering concurrent note edits.
+  const freshMinutes = await sb
+    .from("meeting_minutes")
+    .select("checklist_markdown")
+    .eq("meeting_id", meetingId)
+    .maybeSingle();
+  const baseChecklist = freshMinutes.data?.checklist_markdown ?? minutesRes.data?.checklist_markdown ?? "";
+  const newChecklist = mergeDiscussionSummaries(baseChecklist, summaries);
+  const upsertRes = await sb
+    .from("meeting_minutes")
+    .upsert({ meeting_id: meetingId, checklist_markdown: newChecklist }, { onConflict: "meeting_id" });
+  if (upsertRes.error) {
+    return { ok: false, error: `Supabase error: ${upsertRes.error.message}` };
+  }
+
+  return {
+    ok: true,
+    count: Object.keys(summaries).length,
+    utterance_count: parsed.utterances.length,
+    assigned_count: assignedCount,
+    assignment_source: assignmentSource,
+    provider: llmProvider(),
+  };
 }

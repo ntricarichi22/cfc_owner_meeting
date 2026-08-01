@@ -4,6 +4,10 @@ import { jsonError } from "@/lib/api";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { insertAuditEvent, requireCommissionerAuth } from "@/lib/voting";
 import { TRANSCRIPT_MARKDOWN_HEADING } from "@/lib/constants";
+import { generateAndStoreSummaries } from "@/lib/transcript";
+
+// Ending a meeting kicks off summary generation, which may call an LLM.
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   const auth = await requireCommissionerAuth().catch(() => null);
@@ -87,22 +91,15 @@ export async function POST(req: NextRequest) {
     finalized_at: now,
   });
 
-  // Best-effort: kick off transcript-driven discussion-summary generation.
-  // We do this inline (await) so the result is ready by the time the user lands
-  // on the Minutes Review page. Any failure is logged but non-fatal — meeting
-  // ending must still succeed.
+  // Best-effort: generate transcript-driven discussion summaries inline so
+  // the result is ready when the user lands on Minutes Review. Any failure is
+  // logged but non-fatal — meeting ending must still succeed, and summaries
+  // can be regenerated from the Minutes Review page.
   try {
-    const origin = req.nextUrl.origin;
-    const cookieHeader = req.headers.get("cookie") ?? "";
-    // fire-and-forget (don't block more than ~30s on AI)
-    await fetch(`${origin}/api/meetings/${meetingId}/discussion-summaries/generate`, {
-      method: "POST",
-      headers: { cookie: cookieHeader },
-    }).catch((err) => {
-      console.warn("[end] discussion-summaries auto-generate failed:", err);
-    });
+    const generation = await generateAndStoreSummaries(meetingId);
+    if (!generation.ok) console.warn("[end] discussion-summaries auto-generate failed:", generation.error);
   } catch (err) {
-    console.warn("[end] discussion-summaries auto-generate dispatch failed:", err);
+    console.warn("[end] discussion-summaries auto-generate failed:", err);
   }
 
   return Response.json({ ok: true, meetingId });

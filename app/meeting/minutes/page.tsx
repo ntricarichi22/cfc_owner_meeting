@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
 
@@ -279,11 +280,17 @@ export default function MeetingMinutesPage() {
   const [noteSaved, setNoteSaved] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [constitutionSections, setConstitutionSections] = useState<ConstitutionSectionInfo[]>([]);
+
+  const [uploadingTranscript, setUploadingTranscript] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [pipelineMessage, setPipelineMessage] = useState<string | null>(null);
 
   const notesRef = useRef<Record<string, string>>({});
   const commissionerNotesRef = useRef<Record<string, string>>({});
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transcriptFileRef = useRef<HTMLInputElement>(null);
 
   // Keep refs in sync with state for closures
   useEffect(() => {
@@ -303,63 +310,87 @@ export default function MeetingMinutesPage() {
       .catch(() => setConstitutionSections([]));
   }, [session]);
 
-  // Load meeting + slides + minutes data
+  // Load meeting + slides + minutes data (also used to refresh after
+  // transcript upload / summary regeneration)
+  const loadAll = useCallback(async (id: string) => {
+    setMeetingId(id);
+
+    const [meetingRes, slidesRes, minutesRes] = await Promise.all([
+      fetch(`/api/meetings/${id}`),
+      fetch(`/api/meetings/${id}/slides`),
+      fetch(`/api/meetings/${id}/minutes`),
+    ]);
+
+    if (meetingRes.ok) {
+      const m = await meetingRes.json();
+      setMeeting(m);
+      setLoadError(null);
+    } else {
+      setLoadError("Meeting not found.");
+    }
+
+    let cnMap: Record<string, string> = {};
+    let transcriptText = "";
+    if (minutesRes.ok) {
+      const m = await minutesRes.json();
+      const parsed = parseSlideNotes(m?.checklist_markdown || "");
+      setNotes(parsed);
+      notesRef.current = parsed;
+      transcriptText = m?.minutes_markdown || "";
+      setTranscript(transcriptText);
+      cnMap = parseCommissionerNotes(m?.checklist_markdown || "");
+      setCommissionerNotes(cnMap);
+      commissionerNotesRef.current = cnMap;
+    }
+
+    if (slidesRes.ok) {
+      const s = await slidesRes.json();
+      const slideList: Slide[] = s.slides || [];
+      // Augment slides with commissioner_notes from meeting_minutes checklist
+      const augmented = slideList.map((slide) => ({
+        ...slide,
+        proposal: slide.proposal
+          ? { ...slide.proposal, commissioner_notes: cnMap[slide.proposal.id] ?? null }
+          : null,
+      }));
+      setSlides(augmented);
+      setSelectedSlide((prev) => {
+        const keep = prev ? augmented.find((sl) => sl.id === prev.id) : null;
+        return keep ?? (augmented.length > 0 ? augmented[0] : null);
+      });
+    }
+    return transcriptText;
+  }, []);
+
   useEffect(() => {
     if (!session) return;
 
-    const loadAll = async (id: string) => {
-      setMeetingId(id);
-
-      const [meetingRes, slidesRes, minutesRes] = await Promise.all([
-        fetch(`/api/meetings/${id}`),
-        fetch(`/api/meetings/${id}/slides`),
-        fetch(`/api/meetings/${id}/minutes`),
-      ]);
-
-      if (meetingRes.ok) {
-        const m = await meetingRes.json();
-        setMeeting(m);
-      }
-
-      let cnMap: Record<string, string> = {};
-      if (minutesRes.ok) {
-        const m = await minutesRes.json();
-        const parsed = parseSlideNotes(m?.checklist_markdown || "");
-        setNotes(parsed);
-        notesRef.current = parsed;
-        setTranscript(m?.minutes_markdown || "");
-        cnMap = parseCommissionerNotes(m?.checklist_markdown || "");
-        setCommissionerNotes(cnMap);
-        commissionerNotesRef.current = cnMap;
-      }
-
-      if (slidesRes.ok) {
-        const s = await slidesRes.json();
-        const slideList: Slide[] = s.slides || [];
-        // Augment slides with commissioner_notes from meeting_minutes checklist
-        const augmented = slideList.map((slide) => ({
-          ...slide,
-          proposal: slide.proposal
-            ? { ...slide.proposal, commissioner_notes: cnMap[slide.proposal.id] ?? null }
-            : null,
-        }));
-        setSlides(augmented);
-        if (augmented.length > 0) setSelectedSlide(augmented[0]);
-      }
-    };
-
     const paramId = searchParams.get("meetingId");
     if (paramId) {
-      loadAll(paramId).catch(() => setMessage("Failed to load minutes data"));
+      loadAll(paramId).catch(() => setLoadError("Failed to load minutes data"));
     } else {
-      fetch("/api/meetings/current")
-        .then((r) => r.json())
-        .then((m) => {
-          if (m?.id) return loadAll(m.id);
-        })
-        .catch(() => setMessage("Failed to load minutes data"));
+      // No meeting specified: prefer the live meeting, otherwise fall back to the
+      // most recent ended/finalized meeting (/api/meetings is ordered year desc).
+      (async () => {
+        try {
+          const currentRes = await fetch("/api/meetings/current");
+          if (currentRes.ok) {
+            const m = await currentRes.json();
+            if (m?.id) return loadAll(m.id);
+          }
+          const listRes = await fetch("/api/meetings");
+          const list = listRes.ok ? await listRes.json() : [];
+          const reviewable = (Array.isArray(list) ? list : []).find(
+            (m) => m?.status === "ended" || m?.status === "finalized",
+          );
+          if (reviewable?.id) return loadAll(reviewable.id);
+          setLoadError("No meeting is available for minutes review yet.");
+        } catch {
+          setLoadError("Failed to load minutes data");
+        }
+      })();
     }
-  }, [session, searchParams]);
+  }, [session, searchParams, loadAll]);
 
   // Persist notes to server
   const saveNotes = useCallback(
@@ -395,6 +426,60 @@ export default function MeetingMinutesPage() {
   const handleNoteBlur = () => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveNotes(notesRef.current);
+  };
+
+  const handleTranscriptUpload = async (file: File) => {
+    if (!meetingId || uploadingTranscript) return;
+    setUploadingTranscript(true);
+    setPipelineMessage("Uploading transcript and generating summaries… this can take a minute.");
+    try {
+      const formData = new FormData();
+      formData.append("transcript", file);
+      const res = await fetch(`/api/meetings/${meetingId}/transcript`, { method: "POST", body: formData });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setPipelineMessage(data?.error || "Transcript upload failed.");
+        return;
+      }
+      const gen = data?.generation;
+      await loadAll(meetingId);
+      if (gen?.ok) {
+        setPipelineMessage(
+          `Transcript uploaded (${gen.utterance_count} utterances). Summaries generated for ${gen.count} slides` +
+            (gen.provider ? ` using AI (${gen.assignment_source} matching).` : " using basic matching — set an AI API key for better summaries."),
+        );
+      } else {
+        setPipelineMessage(`Transcript uploaded, but summaries failed: ${gen?.error || "unknown error"}`);
+      }
+    } catch {
+      setPipelineMessage("Network error during upload. Please try again.");
+    } finally {
+      setUploadingTranscript(false);
+      if (transcriptFileRef.current) transcriptFileRef.current.value = "";
+    }
+  };
+
+  const regenerateSummaries = async () => {
+    if (!meetingId || regenerating) return;
+    setRegenerating(true);
+    setPipelineMessage("Regenerating discussion summaries… this can take a minute.");
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/discussion-summaries/generate`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setPipelineMessage(data?.error || "Summary generation failed.");
+        return;
+      }
+      await loadAll(meetingId);
+      setPipelineMessage(
+        `Summaries regenerated for ${data.count} slides (${data.assigned_count}/${data.utterance_count} utterances matched` +
+          (data.provider ? `, AI ${data.assignment_source} matching).` : ", basic matching — set an AI API key for better summaries)."),
+      );
+    } catch {
+      setPipelineMessage("Network error during regeneration. Please try again.");
+    } finally {
+      setRegenerating(false);
+    }
   };
 
   const finalizeMinutes = async () => {
@@ -489,7 +574,7 @@ export default function MeetingMinutesPage() {
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-3xl font-black uppercase tracking-tight leading-none">
-                {meeting?.title ?? "Loading…"}
+                {meeting?.title ?? (loadError ? "Minutes Unavailable" : "Loading…")}
               </h1>
               {!isFinalized ? (
                 <span className="bg-[#0B0B0F] text-[#F6F1E7] text-xs font-bold tracking-[0.12em] uppercase px-3 py-1 rounded">
@@ -511,11 +596,46 @@ export default function MeetingMinutesPage() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3 shrink-0 mt-1">
+          <div className="flex items-center gap-2 shrink-0 mt-1 flex-wrap justify-end">
             {message && (
               <span className={`text-xs font-semibold ${message.includes("finalized") ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
                 {message}
               </span>
+            )}
+            {isCommissioner && (
+              <>
+                <input
+                  ref={transcriptFileRef}
+                  type="file"
+                  accept=".docx,.txt,.vtt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/vtt"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleTranscriptUpload(file);
+                  }}
+                />
+                <button
+                  onClick={() => transcriptFileRef.current?.click()}
+                  disabled={uploadingTranscript || regenerating || !meetingId}
+                  className="px-4 py-2.5 font-bold uppercase tracking-wide text-xs text-[var(--ink)] bg-[var(--card-surface)] border-2 border-[#111827] rounded shadow-[3px_3px_0_#000] hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploadingTranscript ? "Uploading…" : transcript.trim() ? "Replace Transcript" : "Upload Transcript"}
+                </button>
+                <button
+                  onClick={regenerateSummaries}
+                  disabled={regenerating || uploadingTranscript || !meetingId || !transcript.trim()}
+                  title={!transcript.trim() ? "Upload a transcript first" : "Re-run summary generation from the stored transcript"}
+                  className="px-4 py-2.5 font-bold uppercase tracking-wide text-xs text-[var(--ink)] bg-[var(--card-surface)] border-2 border-[#111827] rounded shadow-[3px_3px_0_#000] hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {regenerating ? "Regenerating…" : "Regenerate Summaries"}
+                </button>
+                <Link
+                  href={meetingId ? `/meeting/minutes/constitution?meetingId=${meetingId}` : "#"}
+                  className="px-4 py-2.5 font-bold uppercase tracking-wide text-xs text-white bg-[#1D4ED8] border-2 border-[#111827] rounded shadow-[3px_3px_0_#000] hover:-translate-y-0.5 transition-all"
+                >
+                  Constitution Updates
+                </Link>
+              </>
             )}
             {isCommissioner && !isFinalized && (
               <button
@@ -529,6 +649,20 @@ export default function MeetingMinutesPage() {
           </div>
         </div>
 
+        {/* Pipeline status banner */}
+        {pipelineMessage && (
+          <div className="border-2 border-[var(--border)] bg-[var(--card-surface)] rounded-xl px-4 py-2.5 text-sm font-semibold shrink-0 flex items-center justify-between gap-3">
+            <span>{pipelineMessage}</span>
+            <button
+              onClick={() => setPipelineMessage(null)}
+              className="text-[var(--ink)]/40 hover:text-[var(--ink)] shrink-0"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Two-column layout */}
         <div className="flex gap-3 flex-1 min-h-0">
           {/* Left sidebar */}
@@ -540,7 +674,10 @@ export default function MeetingMinutesPage() {
               </div>
             </div>
             <div className="overflow-y-auto flex-1">
-              {slides.length === 0 && (
+              {loadError && (
+                <p className="px-4 py-6 text-sm text-[#DC2626] font-semibold">{loadError}</p>
+              )}
+              {!loadError && slides.length === 0 && (
                 <p className="px-4 py-6 text-sm text-[var(--ink)]/40 italic">No slides found.</p>
               )}
               {slides.map((slide) => {
@@ -669,24 +806,27 @@ export default function MeetingMinutesPage() {
                         <span className="font-bold text-lg">Discussion Summary</span>
                       </div>
                       {hasSummary && (
-                        <span className="text-sm text-[#16A34A] font-semibold flex items-center gap-1">
-                          <svg
-                            className="w-3.5 h-3.5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            strokeWidth={3}
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M4.5 12.75l6 6 9-13.5"
-                            />
-                          </svg>
-                          Confidence:{" "}
-                          <span className="font-black text-[#16A34A]">
-                            {summaryConfidence ? confidenceLabel[summaryConfidence] ?? "High" : "High"}
+                        <span className="flex items-center gap-2 text-xs font-semibold">
+                          <span className="px-2 py-0.5 rounded border border-[#111827] uppercase tracking-wide text-[10px] font-bold text-[var(--ink)]/70">
+                            {selectedSlide.summary_source === "ai"
+                              ? "AI Generated"
+                              : selectedSlide.summary_source === "heuristic"
+                                ? "Basic Match"
+                                : "Slide Text — no transcript summary"}
                           </span>
+                          {summaryConfidence && summaryConfidence !== "none" && (
+                            <span
+                              className={
+                                summaryConfidence === "high"
+                                  ? "text-[#16A34A]"
+                                  : summaryConfidence === "medium"
+                                    ? "text-[#D97706]"
+                                    : "text-[#DC2626]"
+                              }
+                            >
+                              Confidence: <span className="font-black">{confidenceLabel[summaryConfidence]}</span>
+                            </span>
+                          )}
                         </span>
                       )}
                     </div>

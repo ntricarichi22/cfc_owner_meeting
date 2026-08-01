@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
 import { Chip, PopCard } from "@/components/ui/primitives";
@@ -60,15 +61,18 @@ export default function PastMeetingsPage() {
 
         <div className="space-y-2">
           {meetings.map((meeting) => (
-            <PopCard key={meeting.id} className="p-4">
-              <div className="flex justify-between items-center gap-3">
-                <h2 className="font-semibold">{meeting.year} — {meeting.title}</h2>
-                <Chip className="text-xs px-3 py-1">
-                  {meeting.locked ? "Locked" : "Unlocked"}
-                </Chip>
-              </div>
-              <p className="text-sm text-[rgba(11,11,15,0.7)] mt-2">Passed: {meeting.passedCount} • Failed: {meeting.failedCount}</p>
-            </PopCard>
+            <Link key={meeting.id} href={`/meeting/minutes?meetingId=${meeting.id}`} className="block">
+              <PopCard className="p-4 hover:-translate-y-[1px] transition-transform cursor-pointer">
+                <div className="flex justify-between items-center gap-3">
+                  <h2 className="font-semibold">{meeting.year} — {meeting.title}</h2>
+                  <Chip className="text-xs px-3 py-1">
+                    {meeting.locked ? "Final" : "In Progress"}
+                  </Chip>
+                </div>
+                <p className="text-sm text-[rgba(11,11,15,0.7)] mt-2">Passed: {meeting.passedCount} • Failed: {meeting.failedCount}</p>
+                <p className="text-sm font-semibold text-[var(--accent-blue)] mt-2">View minutes →</p>
+              </PopCard>
+            </Link>
           ))}
           {!meetings.length && <p className="text-sm text-[rgba(11,11,15,0.6)]">No meetings found.</p>}
         </div>
