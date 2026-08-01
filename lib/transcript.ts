@@ -132,7 +132,7 @@ export function parseRecordingStart(transcript: string): number | null {
 
     // "Month Day, Year H:MM [AM|PM]"
     const long = trimmed.match(
-      /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),\s+(\d{4})(?:\s+(?:at\s+)?(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?)?/,
+      /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),\s+(\d{4})(?:[,\s]+(?:at\s+)?(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?)?/,
     );
     if (long) {
       const months = ["january","february","march","april","may","june","july","august","september","october","november","december"];
@@ -249,6 +249,23 @@ export function parseTranscript(raw: string): ParsedTranscript {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
+
+    // Pattern D (Teams .docx export): "Speaker Name   0:03Text runs on..."
+    //   — speaker, 2+ spaces (or tab), timestamp, then the utterance text glued
+    //   directly onto the timestamp with no separator.
+    const speakerTimeInline = line.match(/^(.{1,80}?)(?:\s{2,}|\t)(\d{1,2}:\d{2}(?::\d{2})?)(.*)$/);
+    if (speakerTimeInline) {
+      const candidateSpeaker = speakerTimeInline[1].trim();
+      const seconds = parseRelativeTimestamp(speakerTimeInline[2]);
+      const rest = (speakerTimeInline[3] ?? "").trim();
+      if (seconds != null && candidateSpeaker.length > 0 && !/[.!?]/.test(candidateSpeaker)) {
+        flush();
+        currentSpeaker = candidateSpeaker;
+        currentSeconds = seconds;
+        if (rest) buffer.push(rest);
+        continue;
+      }
+    }
 
     // Pattern A: "Speaker Name 10:49" or "Speaker Name    10:49" on a single line
     //   where 10:49 is at the END of the line.
