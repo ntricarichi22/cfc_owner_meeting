@@ -18,6 +18,7 @@ type PastMeeting = {
 export default function PastMeetingsPage() {
   const { session, loading, isCommissioner, logout } = useSession();
   const [meetings, setMeetings] = useState<PastMeeting[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [year, setYear] = useState<string>("");
   const [outcome, setOutcome] = useState<string>("");
 
@@ -27,9 +28,24 @@ export default function PastMeetingsPage() {
     if (year) params.set("year", year);
     if (outcome) params.set("outcome", outcome);
     fetch(`/api/past-meetings?${params.toString()}`)
-      .then((res) => res.json())
-      .then((data) => setMeetings(Array.isArray(data) ? data : []))
-      .catch(() => setMeetings([]));
+      .then(async (res) => {
+        if (!res.ok) {
+          setMeetings([]);
+          setFetchError(
+            res.status === 401
+              ? "Your session expired — click Switch Team and select your team again."
+              : "Failed to load meetings. Try refreshing the page.",
+          );
+          return;
+        }
+        const data = await res.json();
+        setFetchError(null);
+        setMeetings(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        setMeetings([]);
+        setFetchError("Failed to load meetings. Try refreshing the page.");
+      });
   }, [session, year, outcome]);
 
   const years = useMemo(
@@ -74,7 +90,11 @@ export default function PastMeetingsPage() {
               </PopCard>
             </Link>
           ))}
-          {!meetings.length && <p className="text-sm text-[rgba(11,11,15,0.6)]">No meetings found.</p>}
+          {!meetings.length && (
+            <p className={`text-sm ${fetchError ? "text-[#DC2626] font-semibold" : "text-[rgba(11,11,15,0.6)]"}`}>
+              {fetchError ?? "No meetings found."}
+            </p>
+          )}
         </div>
       </main>
     </div>

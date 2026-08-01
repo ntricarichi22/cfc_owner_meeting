@@ -39,8 +39,21 @@ export async function getCurrentTeamSession() {
     throw byName.error;
   }
 
-  if (!byName.data) return null;
-  return { session, teamSession: byName.data };
+  if (byName.data) {
+    return { session, teamSession: byName.data };
+  }
+
+  // Auto-heal: the signed cookie is valid but the team_sessions row is gone
+  // (e.g. released from another device, or cleaned up as stale by a later
+  // claim). Without this, every API call 401s and pages look empty even
+  // though the user appears logged in. Recreate the row from the cookie.
+  const revived = await sb
+    .from("team_sessions")
+    .insert({ team_id: session.owner_id, team_name: session.team_name })
+    .select("team_id, team_name")
+    .maybeSingle();
+  if (revived.error || !revived.data) return null;
+  return { session, teamSession: revived.data };
 }
 
 export function isCommissionerTeam(teamName: string | null | undefined) {
