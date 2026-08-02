@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Nav from "@/components/Nav";
 import { useSession } from "@/components/TeamSelector";
+import { diffBodies } from "@/lib/diff";
 
 interface SectionRecommendation {
   section_id: string | null;
@@ -88,6 +89,9 @@ function ConstitutionUpdatesInner() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  // Per-section view: "redline" (default when a recommendation exists) or "edit".
+  const [sectionView, setSectionView] = useState<Record<string, "redline" | "edit">>({});
 
   const loadData = useCallback(async (id: string) => {
     setMeetingId(id);
@@ -167,6 +171,41 @@ function ConstitutionUpdatesInner() {
       setMessage("Network error while saving.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const downloadRedline = async () => {
+    if (!meetingId || downloading) return;
+    setDownloading(true);
+    try {
+      // Persist any unsaved edits first so the Word doc matches the screen.
+      if (recs) {
+        await fetch(`/api/meetings/${meetingId}/constitution-recommendations`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recommendations: recs }),
+        });
+      }
+      const res = await fetch(`/api/meetings/${meetingId}/constitution-redline`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setMessage(data?.error || "Redline download failed.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `CFC-Constitution-Redline-${meeting?.year ?? ""}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setMessage("Redline downloaded — open it in Word to review tracked changes and comments.");
+    } catch {
+      setMessage("Network error during download.");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -261,6 +300,13 @@ function ConstitutionUpdatesInner() {
                   {saving ? "Saving…" : "Save Edits"}
                 </button>
                 <button
+                  onClick={downloadRedline}
+                  disabled={downloading}
+                  className="px-4 py-2.5 font-bold uppercase tracking-wide text-xs text-white bg-[#16A34A] border-2 border-[#111827] rounded shadow-[3px_3px_0_#000] hover:-translate-y-0.5 transition-all disabled:opacity-50"
+                >
+                  {downloading ? "Building…" : "Download Redline (.docx)"}
+                </button>
+                <button
                   onClick={copyDoc}
                   className="px-4 py-2.5 font-bold uppercase tracking-wide text-xs text-[#0B0B0F] bg-[#F5C542] border-2 border-[#111827] rounded shadow-[3px_3px_0_#000] hover:-translate-y-0.5 transition-all"
                 >
@@ -342,44 +388,92 @@ function ConstitutionUpdatesInner() {
                 </p>
               )}
 
-              {item.sections.map((sec, idx) => (
-                <div key={`${item.proposal_id}-${idx}`} className="border-2 border-[var(--border)]/60 rounded-xl overflow-hidden">
-                  <div className="px-4 py-2.5 bg-[var(--paper-bg)] border-b border-[var(--border)]/40 flex items-center justify-between gap-2 flex-wrap">
-                    <span className="font-bold text-sm">{sec.label}</span>
-                    {sec.anchor && (
-                      <a
-                        href={`/constitution#${sec.anchor}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-semibold text-[#1D4ED8] hover:underline"
-                      >
-                        View in constitution ↗
-                      </a>
+              {item.sections.map((sec, idx) => {
+                const sectionKey = `${item.proposal_id}-${idx}`;
+                const canRedline = !!sec.current_body && !!sec.recommended_body.trim();
+                const view = sectionView[sectionKey] ?? (canRedline ? "redline" : "edit");
+                return (
+                  <div key={sectionKey} className="border-2 border-[var(--border)]/60 rounded-xl overflow-hidden">
+                    <div className="px-4 py-2.5 bg-[var(--paper-bg)] border-b border-[var(--border)]/40 flex items-center justify-between gap-2 flex-wrap">
+                      <span className="font-bold text-sm">{sec.label}</span>
+                      <div className="flex items-center gap-2">
+                        {canRedline && (
+                          <div className="flex rounded border border-[var(--border)]/60 overflow-hidden text-[10px] font-bold uppercase tracking-wide">
+                            <button
+                              onClick={() => setSectionView((prev) => ({ ...prev, [sectionKey]: "redline" }))}
+                              className={`px-2.5 py-1 ${view === "redline" ? "bg-[#111827] text-white" : "bg-[var(--card-surface)] text-[var(--ink)]/60 hover:text-[var(--ink)]"}`}
+                            >
+                              Redline
+                            </button>
+                            <button
+                              onClick={() => setSectionView((prev) => ({ ...prev, [sectionKey]: "edit" }))}
+                              className={`px-2.5 py-1 ${view === "edit" ? "bg-[#111827] text-white" : "bg-[var(--card-surface)] text-[var(--ink)]/60 hover:text-[var(--ink)]"}`}
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        )}
+                        {sec.anchor && (
+                          <a
+                            href={`/constitution#${sec.anchor}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold text-[#1D4ED8] hover:underline"
+                          >
+                            View in constitution ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {view === "redline" && canRedline ? (
+                      <div className="p-4">
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed bg-[var(--paper-bg)] rounded-lg p-4">
+                          {diffBodies(sec.current_body, sec.recommended_body).map((part, i) =>
+                            part.type === "ins" ? (
+                              <span key={i} className="bg-[#DCFCE7] text-[#166534] underline decoration-[#16A34A]/60">
+                                {part.text}
+                              </span>
+                            ) : part.type === "del" ? (
+                              <span key={i} className="bg-[#FEE2E2] text-[#991B1B] line-through decoration-[#DC2626]/60">
+                                {part.text}
+                              </span>
+                            ) : (
+                              <span key={i}>{part.text}</span>
+                            ),
+                          )}
+                        </p>
+                        <p className="text-[11px] text-[var(--ink)]/45 mt-2 italic">
+                          Additions <span className="bg-[#DCFCE7] text-[#166534] not-italic px-1">underlined green</span>, deletions{" "}
+                          <span className="bg-[#FEE2E2] text-[#991B1B] line-through not-italic px-1">struck red</span>. Switch to Edit to change the wording.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-4 grid gap-4 md:grid-cols-2">
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--ink)]/50 mb-1">
+                            Current Text
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap text-[var(--ink)]/75 bg-[var(--paper-bg)] rounded-lg p-3 min-h-[100px]">
+                            {sec.current_body || <span className="italic text-[var(--ink)]/40">No existing section.</span>}
+                          </p>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-[#16A34A] mb-1">
+                            Recommended Text (editable)
+                          </div>
+                          <textarea
+                            value={sec.recommended_body}
+                            onChange={(e) => updateSection(item.proposal_id, idx, e.target.value)}
+                            placeholder="Write the updated section text…"
+                            className="w-full min-h-[100px] h-full bg-[var(--paper-bg)] border-2 border-[#16A34A]/40 rounded-lg p-3 text-sm leading-relaxed outline-none resize-y"
+                          />
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <div className="p-4 grid gap-4 md:grid-cols-2">
-                    <div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--ink)]/50 mb-1">
-                        Current Text
-                      </div>
-                      <p className="text-sm whitespace-pre-wrap text-[var(--ink)]/75 bg-[var(--paper-bg)] rounded-lg p-3 min-h-[100px]">
-                        {sec.current_body || <span className="italic text-[var(--ink)]/40">No existing section.</span>}
-                      </p>
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#16A34A] mb-1">
-                        Recommended Text (editable)
-                      </div>
-                      <textarea
-                        value={sec.recommended_body}
-                        onChange={(e) => updateSection(item.proposal_id, idx, e.target.value)}
-                        placeholder="Write the updated section text…"
-                        className="w-full min-h-[100px] h-full bg-[var(--paper-bg)] border-2 border-[#16A34A]/40 rounded-lg p-3 text-sm leading-relaxed outline-none resize-y"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}
