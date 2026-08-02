@@ -77,18 +77,29 @@ export default function PastMeetingsPage() {
 
         <div className="space-y-2">
           {meetings.map((meeting) => (
-            <Link key={meeting.id} href={`/meeting/minutes?meetingId=${meeting.id}`} className="block">
-              <PopCard className="p-4 hover:-translate-y-[1px] transition-transform cursor-pointer">
-                <div className="flex justify-between items-center gap-3">
-                  <h2 className="font-semibold">{meeting.year} — {meeting.title}</h2>
-                  <Chip className="text-xs px-3 py-1">
-                    {meeting.locked ? "Final" : "In Progress"}
-                  </Chip>
-                </div>
-                <p className="text-sm text-[rgba(11,11,15,0.7)] mt-2">Passed: {meeting.passedCount} • Failed: {meeting.failedCount}</p>
-                <p className="text-sm font-semibold text-[var(--accent-blue)] mt-2">View minutes →</p>
-              </PopCard>
-            </Link>
+            <PopCard key={meeting.id} className="p-4">
+              <div className="flex justify-between items-center gap-3">
+                <h2 className="font-semibold">{meeting.year} — {meeting.title}</h2>
+                <Chip className="text-xs px-3 py-1">
+                  {meeting.locked ? "Final" : "In Progress"}
+                </Chip>
+              </div>
+              <p className="text-sm text-[rgba(11,11,15,0.7)] mt-2">Passed: {meeting.passedCount} • Failed: {meeting.failedCount}</p>
+              <div className="flex flex-wrap gap-4 mt-3">
+                <Link
+                  href={`/meeting?replay=${meeting.id}`}
+                  className="text-sm font-semibold text-[var(--accent-blue)] hover:underline underline-offset-4"
+                >
+                  View Presentation →
+                </Link>
+                <Link
+                  href={`/meeting/minutes?meetingId=${meeting.id}`}
+                  className="text-sm font-semibold text-[var(--accent-blue)] hover:underline underline-offset-4"
+                >
+                  View Minutes →
+                </Link>
+              </div>
+            </PopCard>
           ))}
           {!meetings.length && (
             <p className={`text-sm ${fetchError ? "text-[#DC2626] font-semibold" : "text-[rgba(11,11,15,0.6)]"}`}>

@@ -149,6 +149,12 @@ export default function MeetingOwnerPage() {
   const searchParams = useSearchParams();
   const { session, loading: sessionLoading, isCommissioner, logout } = useSession();
 
+  // Replay mode: read-only walkthrough of a past meeting's deck.
+  // Everyone self-navigates; no voting, no meeting mutations.
+  const replayId = searchParams.get("replay");
+  const isReplay = !!replayId;
+  const canNavigate = isCommissioner || isReplay;
+
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [proposals, setProposals] = useState<(Proposal & { proposal_versions?: ProposalVersion[] })[]>([]);
   const [amendments, setAmendments] = useState<Amendment[]>([]);
@@ -183,8 +189,9 @@ export default function MeetingOwnerPage() {
   const slideParam = Number(searchParams.get("slide") ?? "0");
   const parsedSlide = Number.isFinite(slideParam) && slideParam >= 0 ? Math.floor(slideParam) : 0;
   const maxSlide = Math.max(0, slideCount - 1);
-  // Non-commissioners always follow meeting.current_slide_index; commissioners use URL param.
-  const currentSlide = !isCommissioner && meeting
+  // Non-commissioners follow meeting.current_slide_index in a live meeting;
+  // commissioners — and anyone in replay mode — use the URL param.
+  const currentSlide = !canNavigate && meeting
     ? Math.min(meeting.current_slide_index ?? parsedSlide, maxSlide)
     : Math.min(parsedSlide, maxSlide);
   const isClosingSlide = slideCount > 1 && currentSlide === slideCount - 1;
@@ -233,6 +240,11 @@ export default function MeetingOwnerPage() {
     return { ...parsed, prosHtml: null, consHtml: null };
   })();
   const changeSlide = useCallback((nextSlide: number) => {
+    if (isReplay) {
+      // Replay is local-only: no slide persistence, no audit events.
+      router.replace(`/meeting?replay=${replayId}&slide=${nextSlide}`, { scroll: false });
+      return;
+    }
     router.replace(`/meeting?slide=${nextSlide}`, { scroll: false });
     if (meeting?.id) {
       if (isCommissioner) {
@@ -250,7 +262,7 @@ export default function MeetingOwnerPage() {
         body: JSON.stringify({ event_type: "slide_changed", payload: { slide: nextSlide } }),
       }).catch(() => {});
     }
-  }, [router, meeting?.id, isCommissioner]);
+  }, [router, meeting?.id, isCommissioner, isReplay, replayId]);
 
   useEffect(() => {
     if (!searchParams.get("slide") || parsedSlide !== currentSlide) {
@@ -266,7 +278,7 @@ export default function MeetingOwnerPage() {
 
   const loadMeeting = useCallback(async () => {
     try {
-      const res = await fetch("/api/meetings/current");
+      const res = await fetch(isReplay ? `/api/meetings/${replayId}` : "/api/meetings/current");
       if (res.status === 404) {
         setMeetingNotFound(true);
         return;
@@ -284,14 +296,15 @@ export default function MeetingOwnerPage() {
     } catch {
       // ignore polling errors
     }
-  }, []);
+  }, [isReplay, replayId]);
 
   useEffect(() => {
     if (!session) return;
     loadMeeting();
+    if (isReplay) return; // past meetings don't change — one load is enough
     const interval = setInterval(loadMeeting, 5000);
     return () => clearInterval(interval);
-  }, [session, loadMeeting]);
+  }, [session, loadMeeting, isReplay]);
 
   // Load commissioner notes from meeting_minutes.checklist_markdown once per meeting
   useEffect(() => {
@@ -435,7 +448,7 @@ export default function MeetingOwnerPage() {
   }, [activeVersion?.id, proposal?.proposal_type]);
 
   useEffect(() => {
-    if (!isCommissioner) return;
+    if (!canNavigate) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "ArrowRight" && currentSlide < slideCount - 1) {
         changeSlide(currentSlide + 1);
@@ -446,7 +459,7 @@ export default function MeetingOwnerPage() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [currentSlide, slideCount, changeSlide, isCommissioner]);
+  }, [currentSlide, slideCount, changeSlide, canNavigate]);
 
   const handleSubmitAmendment = async () => {
     if (!proposal || !amendText.trim()) return;
@@ -523,6 +536,11 @@ export default function MeetingOwnerPage() {
   };
 
   const handleExitMeeting = async () => {
+    if (isReplay) {
+      // Leaving a replay shouldn't end the viewer's session.
+      router.push("/past-meetings");
+      return;
+    }
     await fetch("/api/session/release", { method: "POST" });
     router.push("/");
   };
@@ -592,7 +610,12 @@ export default function MeetingOwnerPage() {
       )}
 
       <main className="group relative h-[calc(100vh-64px)] overflow-hidden px-4 md:px-8 pb-8">
-        {isCommissioner && currentSlide > 0 && (
+        {isReplay && (
+          <div className="absolute top-1 left-1/2 -translate-x-1/2 z-30 bg-[#0B0B0F] text-[#F6F1E7] text-[11px] font-bold uppercase tracking-[0.2em] px-4 py-1 rounded-full border-2 border-[#111111] shadow-[3px_3px_0_#111111]">
+            Presentation Replay
+          </div>
+        )}
+        {canNavigate && currentSlide > 0 && (
           <button
             onClick={() => changeSlide(currentSlide - 1)}
             className="absolute left-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full border-[var(--border-width)] border-[var(--border)] bg-[var(--card-surface)] text-[var(--ink)] shadow-[var(--shadow-style)] hover:-translate-x-[2px] hover:shadow-[5px_5px_0_var(--shadow)] transition-transform"
@@ -601,7 +624,7 @@ export default function MeetingOwnerPage() {
             ←
           </button>
         )}
-        {isCommissioner && currentSlide < slideCount - 1 && (
+        {canNavigate && currentSlide < slideCount - 1 && (
           <button
             onClick={() => changeSlide(currentSlide + 1)}
             className="absolute right-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full border-[var(--border-width)] border-[var(--border)] bg-[var(--card-surface)] text-[var(--ink)] shadow-[var(--shadow-style)] hover:translate-x-[2px] hover:shadow-[5px_5px_0_var(--shadow)] transition-transform"
@@ -639,7 +662,7 @@ export default function MeetingOwnerPage() {
                         End Meeting
                       </button>
                     )}
-                    <NeutralButton onClick={handleExitMeeting} className="text-sm px-4 py-2">Exit meeting</NeutralButton>
+                    <NeutralButton onClick={handleExitMeeting} className="text-sm px-4 py-2">{isReplay ? "Back to Meeting History" : "Exit meeting"}</NeutralButton>
                   </div>
                 </div>
               </div>
@@ -685,7 +708,7 @@ export default function MeetingOwnerPage() {
                         End Meeting
                       </button>
                     )}
-                    <NeutralButton onClick={handleExitMeeting} className="text-sm px-4 py-2">Exit meeting</NeutralButton>
+                    <NeutralButton onClick={handleExitMeeting} className="text-sm px-4 py-2">{isReplay ? "Back to Meeting History" : "Exit meeting"}</NeutralButton>
                   </div>
                 </div>
               </div>
@@ -917,7 +940,8 @@ export default function MeetingOwnerPage() {
         )}
       </main>
 
-      {showVotingModal && activeVersion?.id && (proposal?.proposal_type || "proposal") !== "admin" && !meeting?.locked && (
+      {showVotingModal && activeVersion?.id && (proposal?.proposal_type || "proposal") !== "admin" &&
+        (!meeting?.locked || (isReplay && voteSessionStatus === "tallied")) && (
         <VotingModal
           proposalVersionId={activeVersion.id}
           isCommissioner={isCommissioner}
