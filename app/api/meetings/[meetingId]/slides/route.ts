@@ -111,6 +111,8 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ meetin
       // existing "View Transcript Excerpt" modal can show only the discussion
       // for this slide instead of the entire meeting transcript.
       transcript_excerpt: generated?.transcript_excerpt ?? null,
+      summary_decision: generated?.decision ?? null,
+      summary_discussion: generated?.discussion ?? null,
       summary_confidence: generated?.confidence ?? null,
       summary_source: generated?.source ?? null,
       voteSession: voteSession

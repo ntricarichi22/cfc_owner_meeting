@@ -20,23 +20,16 @@ export function llmProvider(): LlmProvider {
 async function callAnthropic(system: string, user: string, maxTokens: number): Promise<string | null> {
   try {
     const client = new Anthropic();
-    // Server-side fallback routes rare safety refusals to a fallback model
-    // automatically instead of returning an empty response.
-    const params = {
+    const response = await client.messages.create({
       model: process.env.ANTHROPIC_MODEL || "claude-opus-5",
       max_tokens: maxTokens,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
       system,
-      messages: [{ role: "user" as const, content: user }],
-    };
-    const response = await client.beta.messages.create(
-      params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming,
-    );
+      messages: [{ role: "user", content: user }],
+    });
 
     if (response.stop_reason === "refusal") return null;
     const text = response.content
-      .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === "text")
+      .filter((block): block is Anthropic.TextBlock => block.type === "text")
       .map((block) => block.text)
       .join("\n")
       .trim();

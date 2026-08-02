@@ -38,8 +38,12 @@ export interface ParsedTranscript {
 }
 
 export interface DiscussionSummary {
-  /** Plain-text bullet-point summary (newline-separated lines). */
+  /** Plain-text summary (kept for backward compatibility; combined decision + discussion). */
   summary: string;
+  /** Plain-English summary of what was approved/decided by the members. */
+  decision?: string;
+  /** Plain-English color on the discussion leading up to the decision. */
+  discussion?: string;
   /** Heuristic coverage signal: "high" | "medium" | "low" | "none". */
   confidence: "high" | "medium" | "low" | "none";
   /** Raw transcript excerpt assigned to this slide (plain text). */
@@ -608,6 +612,7 @@ export async function aiAssignUtterancesToSlides(
     "You are given the ordered agenda (slides) and the full transcript as numbered utterances.",
     "Assign each contiguous stretch of the transcript to the agenda item it discusses.",
     "The meeting generally follows agenda order, but tangents and revisits happen — assign by content, not just position.",
+    "Some agenda items are duplicates or a parent/child pair covering the same topic — assign each stretch to the single best-matching item; related items are reconciled downstream.",
     "Small talk, logistics, and banter that belong to no agenda item get slide 0.",
     'Respond with ONLY a JSON array of segments: [{"slide": <agenda number, 0 for none>, "start": <first utterance #>, "end": <last utterance #, inclusive>}].',
     "Segments must be in transcript order, must not overlap, and together should cover every utterance index.",
@@ -684,10 +689,19 @@ function heuristicSummary(slide: SlideContext, utterances: Utterance[]): string 
   return [header, ...lines].join("\n");
 }
 
+/** Turn a "PASSED (YES 10, NO 1, TOTAL 11)" vote summary into a plain sentence. */
+function voteSentence(voteSummary: string | null): string | null {
+  if (!voteSummary) return null;
+  const m = voteSummary.match(/(PASSED|FAILED)\s*\(YES\s*(\d+),\s*NO\s*(\d+)/i);
+  if (!m) return voteSummary;
+  return `The proposal ${m[1].toLowerCase()} by a vote of ${m[2]}–${m[3]}.`;
+}
+
 /**
- * Build a per-slide discussion summary.
+ * Build a per-slide discussion summary with two standard sections:
+ *   decision — what the members approved/decided, in plain English
+ *   discussion — color on the conversation that led there
  * Primary source: transcript text assigned to that slide window.
- * Secondary context only: slide title/details (already HTML-stripped).
  */
 export async function generateDiscussionSummary(
   slide: SlideContext,
@@ -704,36 +718,48 @@ export async function generateDiscussionSummary(
     };
   }
 
-  // Try AI generation first when configured.
-  const system = [
-    "You are summarizing a fantasy-football league owners' meeting.",
-    "Use ONLY the transcript excerpt as the source of the discussion.",
-    "The slide title and context are background only — do NOT summarize the slide text itself.",
-    "Output 3-6 concise bullet lines (one per line, no leading dashes).",
-    "Capture key owner viewpoints, back-and-forth, and the ACTUAL DECISION made — especially for admin items like draft order, where you should list which team got which pick if the transcript states it.",
-    "Use natural sentences. Never output HTML, tags, or entity references like &nbsp;.",
-    "If the transcript excerpt does not contain enough information, output exactly: No transcript discussion detected for this slide.",
-  ].join(" ");
-
-  const user = [
-    `Slide title: ${slide.title}`,
-    `Slide type: ${slide.category}`,
-    slide.voteSummary ? `Vote result: ${slide.voteSummary}` : null,
-    slide.contextText ? `Slide context (background only):\n${slide.contextText.slice(0, 1200)}` : null,
-    `Transcript excerpt for this slide:\n${excerpt.slice(0, 6000)}`,
-  ].filter(Boolean).join("\n\n");
-
-  const aiText = await callLLM(system, user, 600);
-
   const confidence: DiscussionSummary["confidence"] =
     utterances.length >= 8 ? "high"
     : utterances.length >= 3 ? "medium"
     : "low";
 
-  if (aiText && aiText.length > 0) {
-    // Strip HTML defensively in case the model returns any.
+  // AI generation (preferred): plain-English Decision + Discussion sections.
+  const system = [
+    "You are writing meeting minutes for a fantasy-football league owners' meeting.",
+    "You are given the transcript of the discussion for ONE agenda item. Read it and write plain-English minutes — never quote or reproduce transcript lines verbatim, never include timestamps or speaker labels in transcript form.",
+    "The slide title/context is background to help you understand the topic — do not summarize the slide text itself; summarize what was actually said and decided.",
+    'Respond with ONLY JSON: {"decision": "...", "discussion": "..."}.',
+    "decision: 1-3 sentences stating what the members approved or decided, including the vote outcome and any modifications agreed during the meeting. For admin items (draft order, tiebreakers, logistics), state the actual result (e.g. who won the tiebreaker, the final draft order).",
+    "discussion: 2-6 sentences of color on the conversation leading to the decision — who raised concerns or arguments (use their names naturally), what the main points of debate were, and any notable context or humor. Written as flowing prose, not bullets.",
+    "If the transcript for this item is too thin to summarize, set both fields to an empty string.",
+  ].join(" ");
+
+  const user = [
+    `Agenda item: ${slide.title}`,
+    `Item type: ${slide.category}`,
+    slide.voteSummary ? `Official vote result: ${slide.voteSummary}` : null,
+    slide.contextText ? `Slide context (background only):\n${slide.contextText.slice(0, 1500)}` : null,
+    `Transcript of the discussion for this item:\n${excerpt.slice(0, 24000)}`,
+  ].filter(Boolean).join("\n\n");
+
+  const aiText = await callLLM(system, user, 1200);
+  const parsed = extractJson<{ decision?: string; discussion?: string }>(aiText);
+  if (parsed && (parsed.decision?.trim() || parsed.discussion?.trim())) {
+    const decision = stripHtmlServer(parsed.decision ?? "").trim();
+    const discussion = stripHtmlServer(parsed.discussion ?? "").trim();
+    return {
+      summary: [decision, discussion].filter(Boolean).join("\n"),
+      decision,
+      discussion,
+      confidence,
+      transcript_excerpt: excerpt,
+      source: "ai",
+    };
+  }
+  // The model may also return usable prose without JSON — treat as combined summary.
+  if (aiText) {
     const cleaned = stripHtmlServer(aiText).trim();
-    if (cleaned) {
+    if (cleaned && cleaned.length > 20) {
       return {
         summary: cleaned,
         confidence,
@@ -743,8 +769,13 @@ export async function generateDiscussionSummary(
     }
   }
 
+  // Heuristic fallback (no AI configured or call failed).
+  const decision = voteSentence(slide.voteSummary) ?? "";
+  const discussion = heuristicSummary(slide, utterances);
   return {
-    summary: heuristicSummary(slide, utterances),
+    summary: [decision, discussion].filter(Boolean).join("\n"),
+    decision: decision || undefined,
+    discussion,
     confidence,
     transcript_excerpt: excerpt,
     source: "heuristic",
@@ -883,6 +914,31 @@ export async function generateAndStoreSummaries(meetingId: string): Promise<Gene
     });
     utterancesByProposal = assignUtterancesToSlides(parsed, slides, windows).utterancesByProposal;
     assignmentSource = "timestamps";
+  }
+
+  // Duplicate / parent-child agenda items (e.g. "PROPOSAL #7: RESTRUCTURE THE
+  // CFC" alongside "RESTRUCTURE THE CFC") usually get the discussion assigned
+  // to only one of them. Share the assigned utterances across related titles
+  // so the others aren't left with an empty summary.
+  const normalizeTitle = (t: string) =>
+    t
+      .toLowerCase()
+      .replace(/proposal\s*#?\d+[:.\s]*/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  for (const slide of slides) {
+    const own = utterancesByProposal.get(slide.proposalId) ?? [];
+    if (own.length > 0) continue;
+    const normalized = normalizeTitle(slide.title);
+    if (normalized.length < 6) continue;
+    const donor = slides.find((other) => {
+      if (other.proposalId === slide.proposalId) return false;
+      if ((utterancesByProposal.get(other.proposalId) ?? []).length === 0) return false;
+      const otherNorm = normalizeTitle(other.title);
+      return otherNorm.length >= 6 && (otherNorm.includes(normalized) || normalized.includes(otherNorm));
+    });
+    if (donor) utterancesByProposal.set(slide.proposalId, utterancesByProposal.get(donor.proposalId)!);
   }
 
   const assignedCount = Array.from(utterancesByProposal.values()).reduce((n, u) => n + u.length, 0);

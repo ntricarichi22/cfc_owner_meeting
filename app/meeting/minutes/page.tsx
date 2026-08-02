@@ -42,6 +42,10 @@ interface Slide {
   votes: SlideVote[];
   /** Plain-text transcript excerpt assigned to this slide (when available). */
   transcript_excerpt?: string | null;
+  /** Plain-English summary of what was approved/decided. */
+  summary_decision?: string | null;
+  /** Plain-English color on the discussion leading up to the decision. */
+  summary_discussion?: string | null;
   /** Confidence score for the generated discussion summary. */
   summary_confidence?: "high" | "medium" | "low" | "none" | null;
   /** Source of the discussion summary: "ai" | "heuristic" | "none". */
@@ -831,7 +835,30 @@ export default function MeetingMinutesPage() {
                       )}
                     </div>
 
-                    {hasSummary ? (
+                    {selectedSlide.summary_decision || selectedSlide.summary_discussion ? (
+                      <div className="space-y-4">
+                        {selectedSlide.summary_decision && (
+                          <div>
+                            <div className="text-xs font-black uppercase tracking-[0.12em] text-[#16A34A] mb-1.5">
+                              The Decision
+                            </div>
+                            <p className="text-sm leading-relaxed text-[var(--ink)] whitespace-pre-wrap">
+                              {selectedSlide.summary_decision}
+                            </p>
+                          </div>
+                        )}
+                        {selectedSlide.summary_discussion && (
+                          <div>
+                            <div className="text-xs font-black uppercase tracking-[0.12em] text-[var(--ink)]/55 mb-1.5">
+                              The Discussion
+                            </div>
+                            <p className="text-sm leading-relaxed text-[var(--ink)] whitespace-pre-wrap">
+                              {selectedSlide.summary_discussion}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : hasSummary ? (
                       <ul className="space-y-1.5 text-sm list-disc list-inside text-[var(--ink)]">
                         {summaryLines.map((line, i) => (
                           <li key={i} className="leading-relaxed">
