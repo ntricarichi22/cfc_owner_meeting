@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Nav from "@/components/Nav";
@@ -92,6 +92,7 @@ function ConstitutionUpdatesInner() {
   const [downloading, setDownloading] = useState(false);
   // Per-section view: "redline" (default when a recommendation exists) or "edit".
   const [sectionView, setSectionView] = useState<Record<string, "redline" | "edit">>({});
+  const docFileRef = useRef<HTMLInputElement>(null);
 
   const loadData = useCallback(async (id: string) => {
     setMeetingId(id);
@@ -174,9 +175,10 @@ function ConstitutionUpdatesInner() {
     }
   };
 
-  const downloadRedline = async () => {
+  const redlineWordDoc = async (file: File) => {
     if (!meetingId || downloading) return;
     setDownloading(true);
+    setMessage("Applying tracked changes to your document…");
     try {
       // Persist any unsaved edits first so the Word doc matches the screen.
       if (recs) {
@@ -186,11 +188,23 @@ function ConstitutionUpdatesInner() {
           body: JSON.stringify({ recommendations: recs }),
         });
       }
-      const res = await fetch(`/api/meetings/${meetingId}/constitution-redline`);
+      const formData = new FormData();
+      formData.append("document", file);
+      const res = await fetch(`/api/meetings/${meetingId}/constitution-redline`, {
+        method: "POST",
+        body: formData,
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setMessage(data?.error || "Redline download failed.");
+        setMessage(data?.error || "Redline failed.");
         return;
+      }
+      const appliedCount = res.headers.get("X-Redline-Applied") ?? "0";
+      let warnings: string[] = [];
+      try {
+        warnings = JSON.parse(decodeURIComponent(res.headers.get("X-Redline-Warnings") ?? "%5B%5D"));
+      } catch {
+        // ignore malformed warnings header
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -201,11 +215,15 @@ function ConstitutionUpdatesInner() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      setMessage("Redline downloaded — open it in Word to review tracked changes and comments.");
+      setMessage(
+        `Applied ${appliedCount} amendment${appliedCount === "1" ? "" : "s"} as tracked changes — your original formatting is untouched.` +
+          (warnings.length ? ` ⚠ ${warnings.join(" ")}` : ""),
+      );
     } catch {
-      setMessage("Network error during download.");
+      setMessage("Network error during redline.");
     } finally {
       setDownloading(false);
+      if (docFileRef.current) docFileRef.current.value = "";
     }
   };
 
@@ -299,12 +317,23 @@ function ConstitutionUpdatesInner() {
                 >
                   {saving ? "Saving…" : "Save Edits"}
                 </button>
+                <input
+                  ref={docFileRef}
+                  type="file"
+                  accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) redlineWordDoc(file);
+                  }}
+                />
                 <button
-                  onClick={downloadRedline}
+                  onClick={() => docFileRef.current?.click()}
                   disabled={downloading}
+                  title="Upload your constitution Word doc — it comes back with the amendments as tracked changes, formatting untouched"
                   className="px-4 py-2.5 font-bold uppercase tracking-wide text-xs text-white bg-[#16A34A] border-2 border-[#111827] rounded shadow-[3px_3px_0_#000] hover:-translate-y-0.5 transition-all disabled:opacity-50"
                 >
-                  {downloading ? "Building…" : "Download Redline (.docx)"}
+                  {downloading ? "Marking Up…" : "Redline My Word Doc"}
                 </button>
                 <button
                   onClick={copyDoc}
